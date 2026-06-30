@@ -1,0 +1,26 @@
+# Firebase service account key (NEVER commit this)
+tools/serviceAccountKey.json
+
+# App secrets config (NEVER commit this — use firebase-config.example.js as template)
+firebase-config.js
+
+
+# Firebase cache & debug
+.firebase/
+firebase-debug.log
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated output files
+tools/charts/
+
+# OS files
+.DS_Store
+Thumbs.db
+

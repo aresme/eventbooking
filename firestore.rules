@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Events: Anyone can read/update (to increment slots), only admin can create/delete
+    match /events/{eventId} {
+      allow read, update: if true;
+      allow create, delete: if request.auth != null;
+    }
+
+    // Bookings: Anyone can read/create/update (self-cancel), only admin can delete
+    match /bookings/{bookingId} {
+      allow read, create, update: if true;
+      allow delete: if request.auth != null;
+    }
+
+    // Waitlists: Anyone can read/create, only admin can update/delete
+    match /waitlists/{waitlistId} {
+      allow read, create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Activity Logs: Only admin can read/write
+    match /activityLogs/{logId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
