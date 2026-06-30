@@ -1,6 +1,3 @@
-<h1 align="center">
-  <img src="screenshots/landing.png" alt="UniVibe Banner" width="100%">
-</h1>
 
 <h1 align="center">⚡ UniVibe — Campus Event Booking</h1>
 
@@ -15,29 +12,6 @@
   <img src="https://img.shields.io/badge/Gemini_AI-Powered-purple?logo=google" alt="Gemini AI">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
 </p>
-
----
-
-## 📸 Screenshots
-
-<table>
-  <tr>
-    <td><strong>🏠 Landing Page</strong></td>
-    <td><strong>🎫 Booking Flow</strong></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/landing.png" alt="Landing Page" width="100%"></td>
-    <td><img src="screenshots/booking.png" alt="Booking Modal" width="100%"></td>
-  </tr>
-  <tr>
-    <td><strong>🎟️ Digital Ticket</strong></td>
-    <td><strong>🛠️ Admin Dashboard</strong></td>
-  </tr>
-  <tr>
-    <td><img src="screenshots/ticket.png" alt="Digital Ticket" width="100%"></td>
-    <td><img src="screenshots/admin.png" alt="Admin Panel" width="100%"></td>
-  </tr>
-</table>
 
 ---
 
