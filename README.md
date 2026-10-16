@@ -25,7 +25,7 @@
 - Optional email confirmation (EmailJS)
 - Dark mode, installable as an app (PWA), works on bad connections
 
-**Organizers & admins** (`/dashboard`)
+**Organizers & admins** (separate admin page: `/admin`, built from `admin.html`)
 - **Roles:** clubs apply as organizers and an admin approves them. Organizers see and manage only their own events.
 - Events need admin approval before going public; admins can feature events on the home page
 - Event editor with multiple ticket types, per-person limits, Cloudinary upload, Unsplash search and an AI-written description
@@ -52,7 +52,7 @@ npm run seed               # terminal 2: demo events, bookings and accounts
 npm run dev:emulator       # terminal 2: app at http://localhost:5173
 ```
 
-Demo logins for `/dashboard`: `admin@univibe.test` and `organizer@univibe.test`, both with password `password123`.
+Demo logins for `/admin`: `admin@univibe.test` and `organizer@univibe.test`, both with password `password123`.
 
 ## Connecting to your Firebase project
 
@@ -102,7 +102,8 @@ Cloudinary upload and social links are set by an admin in **Dashboard → Settin
 ## Project structure
 
 ```
-├── index.html              # app shell
+├── index.html              # public site
+├── admin.html              # admin page (/admin)
 ├── src/
 │   ├── App.jsx             # routes
 │   ├── lib/                # firebase init, formatting, calendar helpers
@@ -111,7 +112,8 @@ Cloudinary upload and social links are set by an admin in **Dashboard → Settin
 │   ├── components/         # EventCard, TicketCard, SiteLayout, ui/ (buttons, dialogs, forms)
 │   └── pages/
 │       ├── public/         # Home, EventDetail, Ticket, MyTickets, Terms/Privacy
-│       └── dashboard/      # Overview, Events, EventForm, Bookings, Waitlist, Scanner, Organizers…
+│       └── public/…
+│   └── admin/              # separate admin page (admin.html): AdminApp + pages/
 ├── firestore.rules         # the security model, see comments inside
 ├── firestore.indexes.json
 ├── tests/                  # rules + service tests (npm run test:rules)

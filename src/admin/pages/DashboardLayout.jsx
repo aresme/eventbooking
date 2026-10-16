@@ -31,15 +31,15 @@ const DataContext = createContext(null)
 export const useDashboard = () => useContext(DataContext)
 
 const NAV = [
-  { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/dashboard/events', label: 'Events', icon: CalendarDays },
-  { to: '/dashboard/events/new', label: 'New event', icon: PlusCircle },
-  { to: '/dashboard/bookings', label: 'Bookings', icon: Ticket },
-  { to: '/dashboard/waitlist', label: 'Waitlist', icon: Hourglass, badge: 'waitlist' },
-  { to: '/dashboard/scanner', label: 'Check-in', icon: ScanLine },
-  { to: '/dashboard/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
-  { to: '/dashboard/activity', label: 'Activity', icon: Activity },
-  { to: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/admin/events', label: 'Events', icon: CalendarDays },
+  { to: '/admin/events/new', label: 'New event', icon: PlusCircle },
+  { to: '/admin/bookings', label: 'Bookings', icon: Ticket },
+  { to: '/admin/waitlist', label: 'Waitlist', icon: Hourglass, badge: 'waitlist' },
+  { to: '/admin/scanner', label: 'Check-in', icon: ScanLine },
+  { to: '/admin/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
+  { to: '/admin/activity', label: 'Activity', icon: Activity },
+  { to: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function DashboardLayout() {
@@ -85,13 +85,13 @@ function StaffShell() {
   const sidebar = (
     <nav className="flex h-full flex-col gap-1 p-3" aria-label="Dashboard">
       <div className="mb-4 flex items-center justify-between px-2 pt-1">
-        <Logo to="/dashboard" suffix={isAdmin ? 'Admin' : 'Organizer'} />
+        <Logo to="/admin" suffix={isAdmin ? 'Admin' : 'Organizer'} />
       </div>
       {NAV.filter((n) => !n.adminOnly || isAdmin).map(({ to, label, icon: Icon, end, badge }) => (
         <NavLink
           key={to}
           to={to}
-          end={end ?? to === '/dashboard/events'}
+          end={end ?? to === '/admin/events'}
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
             cn(

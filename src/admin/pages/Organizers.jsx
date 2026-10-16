@@ -96,7 +96,7 @@ export default function Organizers() {
       )}
       <Card>
         <CardHeader title="Team" description="Organizers manage only their own events. Admins approve events and manage everyone." />
-        {others.length === 0 ? <EmptyState icon={Users} title="No organizers yet" className="m-5" description="Share /dashboard so clubs can apply." /> : <ul className="divide-y">{others.map(row)}</ul>}
+        {others.length === 0 ? <EmptyState icon={Users} title="No organizers yet" className="m-5" description="Share /admin so clubs can apply." /> : <ul className="divide-y">{others.map(row)}</ul>}
       </Card>
     </div>
   )

@@ -4,8 +4,21 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Two separate pages: the public site (index.html) and the admin area (admin.html at /admin).
+// In dev, send /admin and /admin/* to admin.html like Firebase Hosting does in production.
+const adminPage = {
+  name: 'admin-page',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      if (/^\/admin(\/|$|\?)/.test(req.url) && !req.url.startsWith('/admin.html')) req.url = '/admin.html'
+      next()
+    })
+  },
+}
+
 export default defineConfig({
   plugins: [
+    adminPage,
     react(),
     tailwindcss(),
     VitePWA({
@@ -23,10 +36,14 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        // Precache only what the public site needs; staff-only chunks (charts, QR scanner)
+        navigateFallbackDenylist: [/^\/admin/],
+        // Precache only what the public site needs; the admin page and its chunks
         // and extra font subsets are cached on first use instead, to save students' data.
         globPatterns: ['**/*.{js,css,html,svg}', '**/*latin-wght*.woff2'],
-        globIgnores: ['**/Overview-*', '**/esm-*', '**/*latin-ext*'],
+        globIgnores: [
+          '**/admin.html', '**/admin-*', '**/esm-*', '**/*latin-ext*',
+          ...['Events', 'EventForm', 'Bookings', 'Waitlist', 'Scanner', 'Organizers', 'Activity', 'Settings'].map((p) => `**/${p}-*`),
+        ],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/assets/'),
@@ -37,6 +54,11 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      input: { main: 'index.html', admin: 'admin.html' },
+    },
+  },
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },
   },

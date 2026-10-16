@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Clock, ShieldX } from 'lucide-react'
 import { staffSignIn, organizerSignUp, staffSignOut } from '@/services/users'
 import { Logo, ThemeToggle } from '@/components/brand'
@@ -23,11 +22,11 @@ function Shell({ children }) {
       <ThemeToggle className="absolute top-4 right-4" />
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center">
-          <Logo />
+          <Logo href="/" />
         </div>
         <div className="rounded-2xl border bg-card p-6 shadow-card sm:p-8">{children}</div>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          <Link to="/" className="hover:text-foreground">← Back to events</Link>
+          <a href="/" className="hover:text-foreground">← Back to events</a>
         </p>
       </div>
     </div>

@@ -13,15 +13,16 @@ export function LogoMark({ className }) {
   )
 }
 
-export function Logo({ to = '/', className, suffix }) {
+export function Logo({ to = '/', href, className, suffix }) {
+  const Tag = href ? 'a' : Link
   return (
-    <Link to={to} className={cn('flex items-center gap-2 font-extrabold tracking-tight', className)}>
+    <Tag {...(href ? { href } : { to })} className={cn('flex items-center gap-2 font-extrabold tracking-tight', className)}>
       <LogoMark />
       <span className="text-lg">
         Uni<span className="text-primary">Vibe</span>
       </span>
       {suffix && <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{suffix}</span>}
-    </Link>
+    </Tag>
   )
 }
 
