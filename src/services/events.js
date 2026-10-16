@@ -15,6 +15,8 @@ import { logActivity } from './logs'
 const eventsCol = collection(db, 'events')
 
 const withId = (snap) => ({ id: snap.id, ...snap.data() })
+// v1 events (tiers stored as a list, no status) are skipped until tools/migrate_v2.py converts them.
+const isV2 = (e) => e.status && e.tiers && !Array.isArray(e.tiers)
 
 export function subscribePublishedEvents(onData, onError) {
   return onSnapshot(
@@ -35,7 +37,7 @@ export function subscribeEvent(eventId, onData, onError) {
 /** Admins see every event; organizers only their own. */
 export function subscribeManagedEvents({ uid, role }, onData, onError) {
   const q = role === 'admin' ? eventsCol : query(eventsCol, where('ownerId', '==', uid))
-  return onSnapshot(q, (snap) => onData(snap.docs.map(withId)), onError)
+  return onSnapshot(q, (snap) => onData(snap.docs.map(withId).filter(isV2)), onError)
 }
 
 /**

@@ -18,6 +18,8 @@ import { logActivity } from './logs'
 
 const bookingsCol = collection(db, 'bookings')
 const withId = (snap) => ({ id: snap.id, ...snap.data() })
+// v1 bookings (one ticket, no `tickets` array) are skipped until tools/migrate_v2.py converts them.
+const v2Only = (list) => list.filter((b) => Array.isArray(b.tickets) && Array.isArray(b.ticketCodes))
 
 export class BookingError extends Error {}
 
@@ -141,7 +143,7 @@ export function subscribeBooking(bookingId, onData, onError) {
 export function subscribeMyBookings(uid, onData, onError) {
   return onSnapshot(
     query(bookingsCol, where('userId', '==', uid), orderBy('bookedAt', 'desc')),
-    (snap) => onData(snap.docs.map(withId)),
+    (snap) => onData(v2Only(snap.docs.map(withId))),
     onError,
   )
 }
@@ -150,7 +152,7 @@ export function subscribeManagedBookings({ uid, role }, onData, onError) {
   const base = role === 'admin' ? [] : [where('ownerId', '==', uid)]
   return onSnapshot(
     query(bookingsCol, ...base, orderBy('bookedAt', 'desc')),
-    (snap) => onData(snap.docs.map(withId)),
+    (snap) => onData(v2Only(snap.docs.map(withId))),
     onError,
   )
 }
@@ -158,7 +160,7 @@ export function subscribeManagedBookings({ uid, role }, onData, onError) {
 export async function findBookingByCode(code, { uid, role }) {
   const base = role === 'admin' ? [] : [where('ownerId', '==', uid)]
   const snap = await getDocs(query(bookingsCol, ...base, where('ticketCodes', 'array-contains', code), limit(1)))
-  return snap.empty ? null : withId(snap.docs[0])
+  return v2Only(snap.docs.map(withId))[0] || null
 }
 
 /**

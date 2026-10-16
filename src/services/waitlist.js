@@ -29,7 +29,7 @@ export function subscribeManagedWaitlist({ uid, role }, onData, onError) {
   const base = role === 'admin' ? [] : [where('ownerId', '==', uid)]
   return onSnapshot(
     query(waitlistsCol, ...base, orderBy('joinedAt', 'asc')),
-    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((w) => w.ownerId)),
     onError,
   )
 }
