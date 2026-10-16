@@ -1,26 +1,26 @@
-# Firebase service account key (NEVER commit this)
+# Dependencies & build
+node_modules/
+dist/
+dev-dist/
+
+# Secrets (NEVER commit)
+.env
+.env.local
+.env.*.local
 tools/serviceAccountKey.json
-
-# App secrets config (NEVER commit this — use firebase-config.example.js as template)
-firebase-config.js
-
 
 # Firebase cache & debug
 .firebase/
-firebase-debug.log
+*-debug.log
 
-# Python virtual environment
+# Python
 .venv/
-
-# Python cache
 __pycache__/
 *.pyc
-*.pyo
-
-# Generated output files
 tools/charts/
+tools/*.csv
 
-# OS files
+# OS / editor
 .DS_Store
 Thumbs.db
-
+.vscode/

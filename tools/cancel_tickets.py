@@ -15,6 +15,7 @@ if sys.stdout.encoding.lower() != 'utf-8':
 
 sys.path.insert(0, os.path.dirname(__file__))
 from univibe_firebase import get_db
+from firebase_admin import firestore
 
 def banner():
     print(Fore.RED + Style.BRIGHT + """
@@ -24,11 +25,10 @@ def banner():
 """)
 
 def cancel_by_ticket_code(db, code):
-    bookings = db.collection('bookings').where('ticketCode', '==', code).get()
+    bookings = db.collection('bookings').where('ticketCodes', 'array_contains', code.upper()).get()
     if not bookings:
         print(Fore.YELLOW + f"  ⚠ No booking found with Ticket Code: {code}")
         return
-
     process_cancellations(db, bookings)
 
 def cancel_by_phone(db, phone):
@@ -36,74 +36,46 @@ def cancel_by_phone(db, phone):
     if not bookings:
         print(Fore.YELLOW + f"  ⚠ No bookings found for Phone: {phone}")
         return
-    
     process_cancellations(db, bookings)
 
 def process_cancellations(db, bookings):
-    batch = db.batch()
-    cancelled_count = 0
-    events_to_update = {}
-
-    for b in bookings:
-        data = b.to_dict()
-        booking_id = b.id
-        event_id = data.get('eventId')
-        tier_id = data.get('tierId')
-
-        print(Fore.CYAN + f"  Found Booking: {data.get('fullName')} | Code: {data.get('ticketCode')} | Event: {event_id}")
-
-        # Delete the booking
-        batch.delete(db.collection('bookings').document(booking_id))
-        cancelled_count += 1
-
-        # Track slots to restore
-        if event_id and tier_id:
-            if event_id not in events_to_update:
-                events_to_update[event_id] = {}
-            if tier_id not in events_to_update[event_id]:
-                events_to_update[event_id][tier_id] = 0
-            
-            # Usually quantity is 1 per booking doc in this system
-            events_to_update[event_id][tier_id] += 1 
-
-    if cancelled_count == 0:
+    """Mark bookings cancelled and give their seats back (same as cancelling in the dashboard)."""
+    active = [b for b in bookings if b.to_dict().get('status') == 'confirmed']
+    if not active:
+        print(Fore.YELLOW + "  ⚠ All matching bookings are already cancelled.")
         return
 
-    print(Fore.YELLOW + f"\n  Are you sure you want to completely cancel {cancelled_count} ticket(s)?")
-    confirm = input("  Type 'yes' to confirm: ")
-    if confirm.lower() != 'yes':
+    total = 0
+    for b in active:
+        d = b.to_dict()
+        total += d.get('quantity', 1)
+        print(Fore.CYAN + f"  Found: {d.get('fullName')} | {', '.join(d.get('ticketCodes', []))} | {d.get('eventTitle', d.get('eventId'))} × {d.get('quantity', 1)}")
+
+    print(Fore.YELLOW + f"\n  Cancel {len(active)} booking(s) ({total} ticket(s))?")
+    if input("  Type 'yes' to confirm: ").lower() != 'yes':
         print(Fore.GREEN + "  Cancellation aborted.")
         return
 
-    print(Fore.CYAN + "\n  ⏳ Processing cancellations and freeing up slots...")
-    
-    # Restore slots in events
-    for event_id, tiers_to_restore in events_to_update.items():
-        event_ref = db.collection('events').document(event_id)
-        event_doc = event_ref.get()
-        if event_doc.exists:
-            event_data = event_doc.to_dict()
-            tiers = event_data.get('tiers', [])
-            updated = False
-            for tier in tiers:
-                t_id = tier.get('id')
-                if t_id in tiers_to_restore:
-                    restored_amount = tiers_to_restore[t_id]
-                    if tier['bookedSlots'] >= restored_amount:
-                        tier['bookedSlots'] -= restored_amount
-                    else:
-                        tier['bookedSlots'] = 0
-                    updated = True
-            
-            if updated:
-                batch.update(event_ref, {'tiers': tiers})
+    for b in active:
+        d = b.to_dict()
+        qty = d.get('quantity', 1)
 
-    # Commit all changes atomically
-    try:
-        batch.commit()
-        print(Fore.GREEN + Style.BRIGHT + f"\n  ✅ Successfully cancelled {cancelled_count} ticket(s) and restored event slots!")
-    except Exception as e:
-        print(Fore.RED + f"\n  ❌ Failed to cancel tickets: {e}")
+        @firestore.transactional
+        def run(tx):
+            event_ref = db.collection('events').document(d['eventId'])
+            holder_ref = event_ref.collection('holders').document(d['userId'])
+            event = event_ref.get(transaction=tx)
+            holder = holder_ref.get(transaction=tx)
+            tx.update(b.reference, {'status': 'cancelled'})
+            if event.exists and d['tierId'] in (event.to_dict().get('tiers') or {}):
+                booked = event.to_dict()['tiers'][d['tierId']].get('bookedSlots', 0)
+                tx.update(event_ref, {f"tiers.{d['tierId']}.bookedSlots": max(0, booked - qty)})
+            if holder.exists:
+                tx.update(holder_ref, {'count': max(0, holder.to_dict().get('count', 0) - qty)})
+
+        run(db.transaction())
+
+    print(Fore.GREEN + Style.BRIGHT + f"\n  ✅ Cancelled {len(active)} booking(s) and released {total} seat(s).")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fast ticket cancellation tool for UniVibe Admins")

@@ -1,0 +1,158 @@
+import { createContext, useContext, useMemo, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import {
+  Activity,
+  CalendarDays,
+  ExternalLink,
+  Hourglass,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  Menu,
+  PlusCircle,
+  ScanLine,
+  Settings,
+  Ticket,
+  Users,
+  X,
+} from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { useSubscription } from '@/hooks/useSubscription'
+import { subscribeManagedEvents } from '@/services/events'
+import { subscribeManagedBookings } from '@/services/bookings'
+import { subscribeManagedWaitlist } from '@/services/waitlist'
+import { staffSignOut } from '@/services/users'
+import { cn } from '@/lib/utils'
+import { Logo, ThemeToggle } from '@/components/brand'
+import { Button } from '@/components/ui/button'
+import Login, { PendingApproval } from './Login'
+
+const DataContext = createContext(null)
+export const useDashboard = () => useContext(DataContext)
+
+const NAV = [
+  { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/dashboard/events', label: 'Events', icon: CalendarDays },
+  { to: '/dashboard/events/new', label: 'New event', icon: PlusCircle },
+  { to: '/dashboard/bookings', label: 'Bookings', icon: Ticket },
+  { to: '/dashboard/waitlist', label: 'Waitlist', icon: Hourglass, badge: 'waitlist' },
+  { to: '/dashboard/scanner', label: 'Check-in', icon: ScanLine },
+  { to: '/dashboard/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
+  { to: '/dashboard/activity', label: 'Activity', icon: Activity },
+  { to: '/dashboard/settings', label: 'Settings', icon: Settings },
+]
+
+export default function DashboardLayout() {
+  const { loading, user, role, isStaff } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="grid min-h-dvh place-items-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+  if (!user || user.isAnonymous) return <Login />
+  if (!isStaff) return <PendingApproval role={role} />
+  return <StaffShell />
+}
+
+function StaffShell() {
+  const { user, isAdmin } = useAuth()
+  const [open, setOpen] = useState(false)
+  const { pathname } = useLocation()
+  const scope = { uid: user.uid, role: user.role }
+
+  const events = useSubscription((ok, err) => subscribeManagedEvents(scope, ok, err), [user.uid, user.role], { initial: [] })
+  const bookings = useSubscription((ok, err) => subscribeManagedBookings(scope, ok, err), [user.uid, user.role], { initial: [] })
+  const waitlist = useSubscription((ok, err) => subscribeManagedWaitlist(scope, ok, err), [user.uid, user.role], { initial: [] })
+
+  const data = useMemo(() => {
+    const eventsById = Object.fromEntries((events.data || []).map((e) => [e.id, e]))
+    return {
+      events: events.data || [],
+      bookings: bookings.data || [],
+      waitlist: waitlist.data || [],
+      eventsById,
+      loading: events.loading || bookings.loading || waitlist.loading,
+      error: events.error || bookings.error || waitlist.error,
+    }
+  }, [events, bookings, waitlist])
+
+  const badges = { waitlist: data.waitlist.length }
+  const current = NAV.filter((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to))).sort((a, b) => b.to.length - a.to.length)[0]
+
+  const sidebar = (
+    <nav className="flex h-full flex-col gap-1 p-3" aria-label="Dashboard">
+      <div className="mb-4 flex items-center justify-between px-2 pt-1">
+        <Logo to="/dashboard" suffix={isAdmin ? 'Admin' : 'Organizer'} />
+      </div>
+      {NAV.filter((n) => !n.adminOnly || isAdmin).map(({ to, label, icon: Icon, end, badge }) => (
+        <NavLink
+          key={to}
+          to={to}
+          end={end ?? to === '/dashboard/events'}
+          onClick={() => setOpen(false)}
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold transition-colors [&_svg]:size-4',
+              isActive ? 'bg-primary-soft text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )
+          }
+        >
+          <Icon /> {label}
+          {badge && badges[badge] > 0 && <span className="ml-auto rounded-full bg-primary px-1.5 text-[11px] font-bold text-primary-foreground">{badges[badge]}</span>}
+        </NavLink>
+      ))}
+      <div className="mt-auto space-y-1 border-t pt-3">
+        <a href="/" target="_blank" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground [&_svg]:size-4">
+          <ExternalLink /> View site
+        </a>
+        <div className="flex items-center gap-2 rounded-lg px-3 py-2">
+          <div className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-bold uppercase">{(user.profile?.displayName || user.email || '?')[0]}</div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{user.profile?.displayName || 'Staff'}</p>
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          </div>
+          <Button variant="ghost" size="icon-sm" onClick={staffSignOut} aria-label="Sign out">
+            <LogOut />
+          </Button>
+        </div>
+      </div>
+    </nav>
+  )
+
+  return (
+    <DataContext.Provider value={data}>
+      <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
+        <aside className="sticky top-0 hidden h-dvh border-r bg-card lg:block">{sidebar}</aside>
+
+        {open && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
+            <aside className="animate-fade-up absolute inset-y-0 left-0 w-72 border-r bg-card">{sidebar}</aside>
+          </div>
+        )}
+
+        <div className="min-w-0">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur-lg sm:px-6">
+            <Button variant="ghost" size="icon" className="-ml-2 lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
+              {open ? <X /> : <Menu />}
+            </Button>
+            <h1 className="flex-1 truncate font-bold">{current?.label || 'Dashboard'}</h1>
+            <ThemeToggle />
+          </header>
+          <main className="mx-auto max-w-6xl p-4 sm:p-6">
+            {data.error ? (
+              <div className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+                Couldn’t load dashboard data: {data.error.message}. If you just set up the project, deploy the Firestore rules and indexes.
+              </div>
+            ) : (
+              <Outlet />
+            )}
+          </main>
+        </div>
+      </div>
+    </DataContext.Provider>
+  )
+}
