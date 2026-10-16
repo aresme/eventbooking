@@ -28,6 +28,18 @@
           }
         ]
       }
+    ],
+    "redirects": [
+      {
+        "source": "/admin.html",
+        "destination": "/dashboard",
+        "type": 301
+      },
+      {
+        "source": "/admin",
+        "destination": "/dashboard",
+        "type": 301
+      }
     ]
   },
   "firestore": {
