@@ -6,6 +6,7 @@ import EventDetail from '@/pages/public/EventDetail'
 import Ticket from '@/pages/public/Ticket'
 import MyTickets from '@/pages/public/MyTickets'
 import { NotFound, Privacy, Terms } from '@/pages/public/Legal'
+import AdminRedirect from '@/pages/public/AdminRedirect'
 
 // Public site only. The admin area is a separate page: admin.html → src/admin/main.jsx
 const router = createBrowserRouter([
@@ -26,6 +27,8 @@ const router = createBrowserRouter([
           { path: '/my-tickets', element: <MyTickets /> },
           { path: '/terms', element: <Terms /> },
           { path: '/privacy', element: <Privacy /> },
+          { path: '/admin/*', element: <AdminRedirect /> },
+          { path: '/dashboard/*', element: <AdminRedirect /> },
           { path: '*', element: <NotFound /> },
         ],
       },
