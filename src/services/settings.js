@@ -57,7 +57,7 @@ export async function generateDescription({ title, type, venue, date }) {
   if (!key) throw new Error('Add VITE_GEMINI_API_KEY to .env to use AI descriptions.')
   const prompt = `Write an engaging 2-paragraph description (max 120 words) for a university ${type === 'school' ? 'school' : 'campus'} event called "${title}"${venue ? ` at ${venue}` : ''}${date ? ` on ${date}` : ''}. Friendly, energetic tone for students. Plain text only, no markdown, no hashtags.`
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
