@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { CalendarDays, Globe, Users } from 'lucide-react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { subscribeClub, subscribeClubEvents } from '@/services/clubs'
-import { isEnded } from '@/lib/utils'
+import { isEnded, safeUrl } from '@/lib/utils'
 import { EventCard, EventCardSkeleton } from '@/components/EventCard'
 import { InstagramIcon } from '@/components/social-icons'
 import { Button } from '@/components/ui/button'
@@ -43,8 +43,8 @@ export default function Club() {
       <header className="flex flex-col gap-5 rounded-2xl border bg-card p-6 shadow-card sm:flex-row sm:items-center sm:p-8">
         {loading ? (
           <Skeleton className="size-20 rounded-2xl" />
-        ) : club?.logo ? (
-          <img src={club.logo} alt="" className="size-20 shrink-0 rounded-2xl object-cover ring-1 ring-border" />
+        ) : safeUrl(club?.logo) ? (
+          <img src={safeUrl(club.logo)} alt="" className="size-20 shrink-0 rounded-2xl object-cover ring-1 ring-border" />
         ) : (
           <div className="grid size-20 shrink-0 place-items-center rounded-2xl bg-primary text-3xl font-extrabold text-primary-foreground">{name[0]}</div>
         )}
@@ -58,13 +58,13 @@ export default function Club() {
             <span className="flex items-center gap-1.5">
               <CalendarDays className="size-4" /> {events.length} event{events.length === 1 ? '' : 's'}
             </span>
-            {club?.website && (
-              <a href={club.website} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-foreground">
+            {safeUrl(club?.website) && (
+              <a href={safeUrl(club.website)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-foreground">
                 <Globe className="size-4" /> Website
               </a>
             )}
-            {club?.instagram && (
-              <a href={club.instagram} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-foreground">
+            {safeUrl(club?.instagram) && (
+              <a href={safeUrl(club.instagram)} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 hover:text-foreground">
                 <InstagramIcon className="size-4" /> Instagram
               </a>
             )}

@@ -38,6 +38,21 @@ service cloud.firestore {
     function isDoor() { return role() == 'door'; }
     function doorFor(data) { return isDoor() && data.ownerId == get(userPath()).data.ownerId; }
 
+    // Small validators shared below.
+    function str(v, max) { return v is string && v.size() <= max; }
+    function optUrl(v) { return v == '' || (str(v, 300) && v.matches('^https://[^\\s"<>]+$')); }
+    function validEmail(v) { return v == '' || (str(v, 120) && v.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')); }
+    // Event dates are 'YYYY-MM-DD'; an event is bookable until the end of its day.
+    function notEnded(e) {
+      let p = e.date.split('-');
+      return timestamp.date(int(p[0]), int(p[1]), int(p[2])) + duration.value(1, 'd') > request.time;
+    }
+    // Organizers may only label events with their own name (no impersonating other hosts).
+    function ownName(name) {
+      let u = get(userPath()).data;
+      return name == u.get('org', '') || name == u.get('displayName', '') || name == request.auth.token.get('email', '');
+    }
+
     function eventPath(id) { return /databases/$(database)/documents/events/$(id); }
     function bookingPath(id) { return /databases/$(database)/documents/bookings/$(id); }
     function holderPath(eventId, u) { return /databases/$(database)/documents/events/$(eventId)/holders/$(u); }
@@ -78,6 +93,8 @@ service cloud.firestore {
         && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
         && request.resource.data.contact is string && request.resource.data.contact.size() >= 5 && request.resource.data.contact.size() <= 120
         && request.resource.data.message is string && request.resource.data.message.size() >= 5 && request.resource.data.message.size() <= 2000
+        && request.resource.data.topic in ['booking', 'organizer', 'bug', 'other']
+        && str(request.resource.data.eventId, 60)
         && request.resource.data.userId == uid()
         && request.resource.data.status == 'open'
         && request.resource.data.createdAt == request.time;
@@ -97,7 +114,8 @@ service cloud.firestore {
       allow create: if isStaff() && validEvent(request.resource.data)
         && (isAdmin() || (request.resource.data.ownerId == uid()
                           && request.resource.data.status == 'pending'
-                          && request.resource.data.featured == false));
+                          && request.resource.data.featured == false
+                          && ownName(request.resource.data.get('ownerName', ''))));
 
       allow update: if staffEventUpdate() || bookingCounterUpdate() || cancelCounterUpdate();
 
@@ -119,6 +137,7 @@ service cloud.firestore {
         return owns(resource.data) && validEvent(d)
           && (isAdmin() || (d.ownerId == resource.data.ownerId
                             && d.featured == resource.data.featured
+                            && (d.get('ownerName', '') == resource.data.get('ownerName', '') || ownName(d.get('ownerName', '')))
                             && (d.status == resource.data.status || d.status in ['pending', 'hidden'])));
       }
 
@@ -129,6 +148,7 @@ service cloud.firestore {
         let t = booking.tierId;
         return signedIn()
           && resource.data.status == 'published'
+          && notEnded(resource.data)
           && !exists(bookingPath(d.txn))
           && booking.eventId == eventId
           && d.diff(resource.data).affectedKeys().hasOnly(['tiers', 'txn'])
@@ -181,7 +201,8 @@ service cloud.firestore {
 
       // Announcements. Public (they're shown on the event and tickets); only the organizer posts.
       match /updates/{updateId} {
-        allow read: if true;
+        allow read: if get(eventPath(eventId)).data.status == 'published'
+          || owns(get(eventPath(eventId)).data) || doorFor(get(eventPath(eventId)).data);
         allow create: if owns(get(eventPath(eventId)).data)
           && request.resource.data.message is string
           && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 500
@@ -222,9 +243,14 @@ service cloud.firestore {
     // ---------- clubs (public organizer profiles) ----------
     match /clubs/{clubId} {
       allow read: if true;
-      allow write: if isAdmin() || (isOrganizer() && clubId == uid()
-        && request.resource.data.name is string && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 80);
+      allow write: if (isAdmin() || (isOrganizer() && clubId == uid())) && validClub(request.resource.data);
+
+      function validClub(d) {
+        return d.keys().hasOnly(['name', 'bio', 'logo', 'website', 'instagram', 'updatedAt'])
+          && str(d.name, 80) && d.name.size() > 0
+          && str(d.get('bio', ''), 1000)
+          && optUrl(d.get('logo', '')) && optUrl(d.get('website', '')) && optUrl(d.get('instagram', ''));
+      }
     }
 
     // ---------- bookings ----------
@@ -244,7 +270,19 @@ service cloud.firestore {
         return doorFor(resource.data)
           && resource.data.status == 'confirmed'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tickets'])
-          && request.resource.data.tickets.size() == resource.data.tickets.size();
+          && request.resource.data.tickets.size() == resource.data.tickets.size()
+          && ticketOk(0) && ticketOk(1) && ticketOk(2) && ticketOk(3) && ticketOk(4)
+          && ticketOk(5) && ticketOk(6) && ticketOk(7) && ticketOk(8) && ticketOk(9)
+          && ticketOk(10) && ticketOk(11) && ticketOk(12) && ticketOk(13) && ticketOk(14)
+          && ticketOk(15) && ticketOk(16) && ticketOk(17) && ticketOk(18) && ticketOk(19);
+      }
+
+      // Ticket i keeps its code, and a checked-in ticket can't be un-checked (quantity ≤ 20).
+      function ticketOk(i) {
+        let before = resource.data.tickets;
+        let after = request.resource.data.tickets;
+        return i >= before.size()
+          || (after[i].code == before[i].code && (before[i].checkedIn == false || after[i].checkedIn == true));
       }
 
       function validBookingShape(d) {
@@ -253,6 +291,10 @@ service cloud.firestore {
                                  'bookedAt', 'source', 'eventTitle', 'tierName', 'unitPrice', 'promoCode', 'discount'])
           && d.fullName is string && d.fullName.size() >= 3 && d.fullName.size() <= 80
           && d.phone is string && d.phone.matches('^0[17][0-9]{8}$')
+          && validEmail(d.get('email', ''))
+          && str(d.get('regNumber', ''), 40) && str(d.get('school', ''), 80)
+          && str(d.get('eventTitle', ''), 200) && str(d.get('tierName', ''), 80)
+          && str(d.get('promoCode', ''), 40)
           && d.quantity is int && d.quantity >= 1 && d.quantity <= 20
           && d.tickets is list && d.tickets.size() == d.quantity
           && d.ticketCodes is list && d.ticketCodes.size() == d.quantity
@@ -268,6 +310,8 @@ service cloud.firestore {
           && ev.txn == bookingId
           && ev.ownerId == d.ownerId
           && d.unitPrice == ev.tiers[d.tierId].price
+          && d.eventTitle == ev.title
+          && d.tierName == ev.tiers[d.tierId].name
           && getAfter(holderPath(d.eventId, uid())).data.txn == bookingId
           && promoOk(d);
       }
@@ -312,6 +356,12 @@ service cloud.firestore {
       allow get: if signedIn() && (resource == null || resource.data.userId == uid() || owns(resource.data));
       allow list: if signedIn() && (resource.data.userId == uid() || owns(resource.data));
       allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['eventId', 'tierId', 'userId', 'ownerId', 'eventTitle', 'tierName', 'fullName', 'phone', 'email', 'regNumber', 'school', 'joinedAt'])
+        && get(eventPath(request.resource.data.eventId)).data.status == 'published'
+        && request.resource.data.fullName.size() <= 80
+        && validEmail(request.resource.data.get('email', ''))
+        && str(request.resource.data.get('regNumber', ''), 40) && str(request.resource.data.get('school', ''), 80)
+        && str(request.resource.data.get('eventTitle', ''), 200) && str(request.resource.data.get('tierName', ''), 80)
         && waitlistId == request.resource.data.eventId + '_' + request.resource.data.tierId + '_' + uid()
         && request.resource.data.userId == uid()
         && request.resource.data.ownerId == get(eventPath(request.resource.data.eventId)).data.ownerId
