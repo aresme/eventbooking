@@ -4,13 +4,15 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Two separate pages: the public site (index.html) and the admin area (admin.html at /admin).
-// In dev, send /admin and /admin/* to admin.html like Firebase Hosting does in production.
+// Three separate pages: the public site (index.html), the admin area (admin.html at /admin)
+// and the organizer portal (organizer.html at /organizer).
+// In dev, route /admin/* and /organizer/* to their pages like Firebase Hosting does in production.
 const adminPage = {
   name: 'admin-page',
   configureServer(server) {
     server.middlewares.use((req, _res, next) => {
-      if (/^\/admin(\/|$|\?)/.test(req.url) && !req.url.startsWith('/admin.html')) req.url = '/admin.html'
+      const m = req.url.match(/^\/(admin|organizer)(\/|$|\?)/)
+      if (m) req.url = `/${m[1]}.html`
       next()
     })
   },
@@ -36,13 +38,13 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/admin/],
+        navigateFallbackDenylist: [/^\/admin/, /^\/organizer/],
         // Precache only what the public site needs; the admin page and its chunks
         // and extra font subsets are cached on first use instead, to save students' data.
         globPatterns: ['**/*.{js,css,html,svg}', '**/*latin-wght*.woff2'],
         globIgnores: [
-          '**/admin.html', '**/admin-*', '**/esm-*', '**/*latin-ext*',
-          ...['Events', 'EventForm', 'Bookings', 'Waitlist', 'Scanner', 'Organizers', 'Activity', 'Settings'].map((p) => `**/${p}-*`),
+          '**/admin.html', '**/admin-*', '**/organizer.html', '**/organizer-*', '**/esm-*', '**/*latin-ext*',
+          ...['AdminApp', 'Events', 'EventForm', 'Bookings', 'Waitlist', 'Scanner', 'Organizers', 'Activity', 'Settings', 'DoorStaff', 'Inbox', 'PromoDialog', 'UpdatesDialog'].map((p) => `**/${p}-*`),
         ],
         runtimeCaching: [
           {
@@ -56,7 +58,7 @@ export default defineConfig({
   ],
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', admin: 'admin.html' },
+      input: { main: 'index.html', admin: 'admin.html', organizer: 'organizer.html' },
     },
   },
   resolve: {

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Clock, ShieldX } from 'lucide-react'
+import { ArrowRight, Clock, ShieldX } from 'lucide-react'
+import { usePortal } from '../portal'
 import { staffSignIn, organizerSignUp, staffSignOut } from '@/services/users'
 import { Logo, ThemeToggle } from '@/components/brand'
 import { Button } from '@/components/ui/button'
@@ -34,6 +35,8 @@ function Shell({ children }) {
 }
 
 export default function Login() {
+  const portal = usePortal()
+  const canSignUp = portal.base === '/organizer'
   const [mode, setMode] = useState('signin')
   const [values, setValues] = useState({ email: '', password: '', displayName: '', org: '' })
   const [error, setError] = useState('')
@@ -60,9 +63,13 @@ export default function Login() {
 
   return (
     <Shell>
-      <h1 className="text-xl font-extrabold">{signup ? 'Become an organizer' : 'Organizer sign in'}</h1>
+      <h1 className="text-xl font-extrabold">{signup ? 'Become an organizer' : canSignUp ? 'Organizer sign in' : 'Admin sign in'}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {signup ? 'Run events for your club or school. An admin will approve your account.' : 'Manage events, bookings and check-in.'}
+        {signup
+          ? 'Run events for your club or school. An admin will approve your account.'
+          : canSignUp
+            ? 'Manage your events, bookings and check-in. Door staff sign in here too.'
+            : 'For UniVibe administrators only.'}
       </p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         {signup && (
@@ -80,12 +87,19 @@ export default function Login() {
           {signup ? 'Create account' : 'Sign in'}
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        {signup ? 'Already have an account?' : 'Want to host events?'}{' '}
-        <button onClick={() => { setMode(signup ? 'signin' : 'signup'); setError('') }} className="font-semibold text-primary hover:underline">
-          {signup ? 'Sign in' : 'Apply as organizer'}
-        </button>
-      </p>
+      {canSignUp ? (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          {signup ? 'Already have an account?' : 'Want to host events?'}{' '}
+          <button onClick={() => { setMode(signup ? 'signin' : 'signup'); setError('') }} className="font-semibold text-primary hover:underline">
+            {signup ? 'Sign in' : 'Apply as organizer'}
+          </button>
+        </p>
+      ) : (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Organizer or door staff?{' '}
+          <a href="/organizer" className="font-semibold text-primary hover:underline">Sign in here</a>
+        </p>
+      )}
     </Shell>
   )
 }
@@ -105,6 +119,26 @@ export function PendingApproval({ role }) {
             : 'This account isn’t an organizer or admin.'}
         </p>
         <Button variant="outline" className="mt-6 w-full" onClick={staffSignOut}>Sign out</Button>
+      </div>
+    </Shell>
+  )
+}
+
+/** Signed in on the other portal: admins use /admin; organizers and door staff use /organizer. */
+export function WrongPortal({ role }) {
+  const target = role === 'admin' ? { href: '/admin', label: 'Go to the admin page' } : { href: '/organizer', label: 'Go to the organizer page' }
+  return (
+    <Shell>
+      <div className="text-center">
+        <div className="mx-auto mb-4 grid size-12 place-items-center rounded-full bg-primary-soft text-primary">
+          <ArrowRight className="size-5" />
+        </div>
+        <h1 className="text-xl font-extrabold">Wrong page</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {role === 'admin' ? 'You’re signed in as an admin. The admin dashboard is on its own page.' : 'You’re signed in as an organizer. Organizers and door staff use the organizer page.'}
+        </p>
+        <Button href={target.href} className="mt-6 w-full">{target.label}</Button>
+        <Button variant="ghost" className="mt-2 w-full" onClick={staffSignOut}>Sign out</Button>
       </div>
     </Shell>
   )

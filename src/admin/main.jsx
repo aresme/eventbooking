@@ -11,6 +11,6 @@ try {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AdminApp />
+    <AdminApp portal="admin" />
   </StrictMode>,
 )

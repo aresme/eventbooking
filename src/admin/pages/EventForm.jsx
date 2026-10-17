@@ -66,7 +66,7 @@ export default function EventForm() {
   }, [copyFrom])
 
   if (eventId && !existing) {
-    return loading ? null : <EmptyState title="Event not found" description="It may have been deleted, or it belongs to another organizer." action={<Button to="/admin/events">Back to events</Button>} />
+    return loading ? null : <EmptyState title="Event not found" description="It may have been deleted, or it belongs to another organizer." action={<Button to="/events">Back to events</Button>} />
   }
 
   const set = (k) => (e) => {
@@ -104,7 +104,7 @@ export default function EventForm() {
     try {
       await saveEvent({ id: existing?.id, values, tiers, existing, user })
       toast.success(existing ? 'Event saved' : isAdmin ? 'Event published' : 'Event submitted for approval')
-      navigate('/admin/events')
+      navigate('/events')
     } catch (err) {
       console.error(err)
       toast.error(err.code === 'permission-denied' ? 'You don’t have permission to save this event.' : 'Could not save the event.')
@@ -115,7 +115,7 @@ export default function EventForm() {
   return (
     <form onSubmit={submit} noValidate className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <Button to="/admin/events" variant="ghost" size="sm">
+        <Button to="/events" variant="ghost" size="sm">
           <ArrowLeft /> Events
         </Button>
         <Button type="submit" loading={saving}>

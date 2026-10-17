@@ -26,7 +26,7 @@ const SECTIONS = [
   {
     title: 'For organizers',
     items: [
-      { q: 'How do I host events on UniVibe?', a: 'Go to Organizer login at the bottom of the page and apply as an organizer. An admin approves your account, then you can create events.' },
+      { q: 'How do I host events on UniVibe?', a: 'Go to univibe-events-9c77f.web.app/organizer (or “Host events” at the bottom of any page) and tap “Apply as organizer”. An admin approves your account, then you can sign in there and create events.' },
       { q: 'Why isn’t my event visible yet?', a: 'New events from organizers are reviewed by an admin before they go public. You’ll see “Awaiting approval” in your dashboard until then.' },
       { q: 'How do I check people in?', a: 'Open Check-in in your dashboard and scan ticket QR codes with your phone camera. You can also create scanner-only logins for volunteers under Door staff.' },
       { q: 'Can I change the venue or time after publishing?', a: 'Yes. Edit the event, then use “Post update” so everyone with a ticket sees the change.' },

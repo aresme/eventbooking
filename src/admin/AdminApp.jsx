@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { AppShell } from '@/components/AppShell'
+import { PORTALS, PortalContext } from './portal'
 import AdminLayout from './pages/DashboardLayout'
 import Overview from './pages/Overview'
 
@@ -21,9 +22,9 @@ const page = (el) => (
   <Suspense fallback={<div className="grid h-64 place-items-center"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>}>{el}</Suspense>
 )
 
-const router = createBrowserRouter([
+const routes = [
   {
-    path: '/admin',
+    path: '/',
     element: <AdminLayout />,
     children: [
       { index: true, element: <Overview /> },
@@ -38,16 +39,20 @@ const router = createBrowserRouter([
       { path: 'inbox', element: page(<Inbox />) },
       { path: 'activity', element: page(<Activity />) },
       { path: 'settings', element: page(<Settings />) },
-      { path: '*', element: <Navigate to="/admin" replace /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-  { path: '*', element: <Navigate to="/admin" replace /> },
-])
+]
 
-export default function AdminApp() {
+/** One dashboard app, mounted at /admin or /organizer (see portal.js). */
+export default function AdminApp({ portal = 'admin' }) {
+  const config = PORTALS[portal]
+  const [router] = useState(() => createBrowserRouter(routes, { basename: config.base }))
   return (
     <AppShell>
-      <RouterProvider router={router} />
+      <PortalContext.Provider value={config}>
+        <RouterProvider router={router} />
+      </PortalContext.Provider>
     </AppShell>
   )
 }

@@ -14,6 +14,7 @@
     }
   },
   "hosting": {
+    "site": "univibe-events-9c77f",
     "public": "dist",
     "ignore": [
       "firebase.json",
@@ -28,6 +29,14 @@
       {
         "source": "/admin/**",
         "destination": "/admin.html"
+      },
+      {
+        "source": "/organizer",
+        "destination": "/organizer.html"
+      },
+      {
+        "source": "/organizer/**",
+        "destination": "/organizer.html"
       },
       {
         "source": "**",
@@ -63,7 +72,7 @@
         ]
       },
       {
-        "source": "/admin{,/**}",
+        "source": "/@(admin|organizer){,/**}",
         "headers": [
           {
             "key": "Cache-Control",
@@ -79,13 +88,18 @@
         "type": 301
       },
       {
+        "source": "/organizer.html",
+        "destination": "/organizer",
+        "type": 301
+      },
+      {
         "source": "/dashboard",
-        "destination": "/admin",
+        "destination": "/organizer",
         "type": 301
       },
       {
         "source": "/dashboard/**",
-        "destination": "/admin",
+        "destination": "/organizer",
         "type": 301
       }
     ]

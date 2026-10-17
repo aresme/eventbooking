@@ -133,7 +133,7 @@ function SiteFooter({ socials }) {
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li><Link to="/help" className="hover:text-foreground">Help center</Link></li>
             <li><Link to="/contact" className="hover:text-foreground">Contact us</Link></li>
-            <li><a href="/admin" className="hover:text-foreground">Organizer login</a></li>
+            <li><a href="/organizer" className="hover:text-foreground">Host events · Organizer login</a></li>
             <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
             <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>
           </ul>
