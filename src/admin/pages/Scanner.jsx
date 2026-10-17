@@ -18,7 +18,7 @@ const RESULT = {
 
 export default function Scanner() {
   const { user } = useAuth()
-  const { events, bookings, eventsById } = useDashboard()
+  const { events, bookings, eventsById, scope } = useDashboard()
   const today = useMemo(() => events.filter((e) => !isEnded(e)).sort((a, b) => a.date.localeCompare(b.date)), [events])
   const [eventId, setEventId] = useState('')
   const [camera, setCamera] = useState(false)
@@ -47,7 +47,7 @@ export default function Scanner() {
     lastCode.current = { code: c, at: Date.now() }
     busy.current = true
     try {
-      const booking = await findBookingByCode(c, user)
+      const booking = await findBookingByCode(c, scope)
       let r
       if (!booking) r = { kind: 'invalid', code: c }
       else if (eventId && booking.eventId !== eventId) r = { kind: 'wrongEvent', code: c, booking }

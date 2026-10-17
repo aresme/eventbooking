@@ -3,6 +3,7 @@ import { CalendarDays, Flame, GraduationCap, MapPin, Star } from 'lucide-react'
 import { categoryOf, eventStats, formatDate, formatPrice, formatTime, isEnded } from '@/lib/utils'
 import { Badge, Skeleton } from './ui/misc'
 import { EventImage } from '@/components/EventImage'
+import { SaveButton } from './SaveFollow'
 
 export function EventCard({ event }) {
   const s = eventStats(event)
@@ -24,7 +25,7 @@ export function EventCard({ event }) {
           loading="lazy"
           className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute inset-x-0 top-0 flex flex-wrap gap-1.5 p-3">
+        <div className="absolute inset-x-0 top-0 flex flex-wrap gap-1.5 p-3 pr-14">
           {event.featured && (
             <Badge variant="featured">
               <Star className="fill-current" /> Featured
@@ -41,6 +42,7 @@ export function EventCard({ event }) {
             </Badge>
           )}
         </div>
+        <SaveButton eventId={event.id} className="absolute top-3 right-3" />
         <div className="absolute bottom-3 left-3 grid min-w-12 place-items-center rounded-lg bg-card px-2 py-1 text-center shadow-md">
           <span className="text-[10px] font-bold uppercase leading-none text-primary">{month}</span>
           <span className="text-lg font-extrabold leading-tight">{day}</span>

@@ -7,6 +7,9 @@ import { deviceBookingIds } from '@/lib/deviceTickets'
 import { useSubscription } from '@/hooks/useSubscription'
 import { subscribeBooking, subscribeMyBookings } from '@/services/bookings'
 import { subscribeMyWaitlist } from '@/services/waitlist'
+import { subscribeEvent } from '@/services/events'
+import { usePeople } from '@/hooks/usePeople'
+import { EventCard } from '@/components/EventCard'
 import { formatPrice, timeAgo } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge, EmptyState, Skeleton } from '@/components/ui/misc'
@@ -39,7 +42,10 @@ export default function MyTickets() {
         {authLoading || loading ? (
           Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)
         ) : total === 0 && waitlist.length === 0 ? (
-          <EmptyState icon={Ticket} title="No tickets yet" description="When you book an event, your ticket shows up here." action={<Button to="/">Browse events</Button>} />
+          <>
+            <EmptyState icon={Ticket} title="No tickets yet" description="When you book an event, your ticket shows up here." action={<Button to="/">Browse events</Button>} />
+            <SavedEvents />
+          </>
         ) : (
           <>
             {active.map((b) => <BookingRow key={b.id} booking={b} />)}
@@ -60,6 +66,7 @@ export default function MyTickets() {
                 ))}
               </>
             )}
+            <SavedEvents />
             {past.length > 0 && (
               <>
                 <h2 className="pt-6 text-sm font-bold uppercase tracking-wider text-muted-foreground">Cancelled</h2>
@@ -70,6 +77,25 @@ export default function MyTickets() {
         )}
       </div>
     </div>
+  )
+}
+
+function SavedEvents() {
+  const { saved } = usePeople()
+  const [events, setEvents] = useState({})
+  const key = saved.join(',')
+  useEffect(() => {
+    if (!key) return
+    const unsubs = key.split(',').map((id) => subscribeEvent(id, (e) => setEvents((m) => ({ ...m, [id]: e })), () => setEvents((m) => ({ ...m, [id]: null }))))
+    return () => unsubs.forEach((u) => u())
+  }, [key])
+  const list = saved.map((id) => events[id]).filter(Boolean)
+  if (list.length === 0) return null
+  return (
+    <>
+      <h2 className="pt-6 text-sm font-bold uppercase tracking-wider text-muted-foreground">Saved events</h2>
+      <div className="grid gap-4 sm:grid-cols-2">{list.map((e) => <EventCard key={e.id} event={e} />)}</div>
+    </>
   )
 }
 

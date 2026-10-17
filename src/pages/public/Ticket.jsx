@@ -8,6 +8,7 @@ import { cancelOwnBooking, subscribeBooking } from '@/services/bookings'
 import { subscribeEvent } from '@/services/events'
 import { isEnded } from '@/lib/utils'
 import { TicketCard } from '@/components/TicketCard'
+import { EventUpdates } from '@/components/EventUpdates'
 import { Button } from '@/components/ui/button'
 import { EmptyState, Skeleton } from '@/components/ui/misc'
 import { useConfirm } from '@/components/ui/dialog'
@@ -79,6 +80,7 @@ export default function Ticket() {
         </div>
       )}
 
+      <EventUpdates eventId={booking.eventId} className="mb-5" />
       <TicketCard booking={booking} event={ev} />
 
       {canCancel && (

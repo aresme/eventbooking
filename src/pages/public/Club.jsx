@@ -7,6 +7,7 @@ import { isEnded } from '@/lib/utils'
 import { EventCard, EventCardSkeleton } from '@/components/EventCard'
 import { InstagramIcon } from '@/components/social-icons'
 import { Button } from '@/components/ui/button'
+import { FollowButton } from '@/components/SaveFollow'
 import { EmptyState, Skeleton } from '@/components/ui/misc'
 
 export default function Club() {
@@ -48,7 +49,10 @@ export default function Club() {
           <div className="grid size-20 shrink-0 place-items-center rounded-2xl bg-primary text-3xl font-extrabold text-primary-foreground">{name[0]}</div>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{name}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{name}</h1>
+            <FollowButton clubId={clubId} name={name} size="md" />
+          </div>
           {club?.bio && <p className="mt-2 max-w-2xl whitespace-pre-line text-muted-foreground">{club.bio}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">

@@ -1,7 +1,9 @@
 rules_version = '2';
 
 // Data model (see ROADMAP.md):
-//   users/{uid}                          role: 'admin' | 'organizer' | 'pending'
+//   users/{uid}                          role: 'admin' | 'organizer' | 'pending' | 'door' (door: ownerId = organizer)
+//   people/{uid}                         visitor's saved events and followed clubs
+//   events/{eventId}/updates/{id}        organizer announcements shown on the event and tickets
 //   events/{eventId}                     tiers: { [tierId]: { name, price, totalSlots, bookedSlots, order } }
 //                                        txn: id of the booking that last changed bookedSlots
 //   events/{eventId}/holders/{uid}       count: tickets this visitor holds for the event
@@ -31,6 +33,9 @@ service cloud.firestore {
     function isOrganizer() { return role() == 'organizer'; }
     function isStaff() { return isAdmin() || isOrganizer(); }
     function owns(data) { return isAdmin() || (isOrganizer() && data.ownerId == uid()); }
+    // Door staff: scanner-only accounts that belong to one organizer (or admin).
+    function isDoor() { return role() == 'door'; }
+    function doorFor(data) { return isDoor() && data.ownerId == get(userPath()).data.ownerId; }
 
     function eventPath(id) { return /databases/$(database)/documents/events/$(id); }
     function bookingPath(id) { return /databases/$(database)/documents/bookings/$(id); }
@@ -39,15 +44,30 @@ service cloud.firestore {
 
     // ---------- users ----------
     match /users/{userId} {
-      allow get: if signedIn() && (userId == uid() || isAdmin());
-      allow list: if isAdmin();
+      allow get: if signedIn() && (userId == uid() || isAdmin() || (isStaff() && resource.data.ownerId == uid()));
+      allow list: if isAdmin() || (isOrganizer() && resource.data.ownerId == uid());
       // Organizer self sign-up starts as 'pending'; only an admin can grant a role.
-      allow create: if signedIn() && !isAnon() && userId == uid()
-        && request.resource.data.role == 'pending'
-        && request.resource.data.keys().hasOnly(['role', 'email', 'displayName', 'org', 'createdAt']);
+      // Organizers may also create door-staff accounts that belong to them.
+      allow create: if (signedIn() && !isAnon() && userId == uid()
+          && request.resource.data.role == 'pending'
+          && request.resource.data.keys().hasOnly(['role', 'email', 'displayName', 'org', 'createdAt']))
+        || (isStaff() && request.resource.data.role == 'door' && request.resource.data.ownerId == uid()
+          && request.resource.data.keys().hasOnly(['role', 'email', 'displayName', 'ownerId', 'createdAt']));
       allow update: if isAdmin()
-        || (userId == uid() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'org']));
+        || (userId == uid() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'org']))
+        || (isOrganizer() && resource.data.ownerId == uid() && resource.data.role in ['door', 'revoked']
+          && request.resource.data.role in ['door', 'revoked']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']));
       allow delete: if isAdmin();
+    }
+
+    // ---------- people (saved events, followed clubs) ----------
+    match /people/{personId} {
+      allow read, delete: if signedIn() && personId == uid();
+      allow create, update: if signedIn() && personId == uid()
+        && request.resource.data.keys().hasOnly(['saved', 'following', 'updatedAt'])
+        && request.resource.data.get('saved', []).size() <= 200
+        && request.resource.data.get('following', []).size() <= 200;
     }
 
     // ---------- settings ----------
@@ -58,7 +78,7 @@ service cloud.firestore {
 
     // ---------- events ----------
     match /events/{eventId} {
-      allow read: if resource.data.status == 'published' || owns(resource.data);
+      allow read: if resource.data.status == 'published' || owns(resource.data) || doorFor(resource.data);
 
       allow create: if isStaff() && validEvent(request.resource.data)
         && (isAdmin() || (request.resource.data.ownerId == uid()
@@ -145,6 +165,16 @@ service cloud.firestore {
         }
       }
 
+      // Announcements. Public (they're shown on the event and tickets); only the organizer posts.
+      match /updates/{updateId} {
+        allow read: if true;
+        allow create: if owns(get(eventPath(eventId)).data)
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 500
+          && request.resource.data.createdAt == request.time;
+        allow delete: if owns(get(eventPath(eventId)).data);
+      }
+
       // Promo codes. Anyone who knows a code can read it; only the organizer can list them.
       match /promos/{code} {
         allow get: if true;
@@ -187,13 +217,21 @@ service cloud.firestore {
     match /bookings/{bookingId} {
       // Anyone holding the (unguessable) booking id can open the ticket; listing is restricted.
       allow get: if true;
-      allow list: if signedIn() && (resource.data.userId == uid() || owns(resource.data));
+      allow list: if signedIn() && (resource.data.userId == uid() || owns(resource.data) || doorFor(resource.data));
 
       allow create: if publicBookingCreate() || staffBookingCreate();
 
       // The visitor can cancel their own booking; staff can check in, cancel or edit.
-      allow update: if selfCancel() || owns(resource.data);
+      allow update: if selfCancel() || owns(resource.data) || doorCheckIn();
       allow delete: if owns(resource.data);
+
+      // Door staff can only flip tickets to checked-in on confirmed bookings of their organizer.
+      function doorCheckIn() {
+        return doorFor(resource.data)
+          && resource.data.status == 'confirmed'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tickets'])
+          && request.resource.data.tickets.size() == resource.data.tickets.size();
+      }
 
       function validBookingShape(d) {
         return d.keys().hasOnly(['eventId', 'tierId', 'userId', 'ownerId', 'fullName', 'phone', 'email',
@@ -273,8 +311,9 @@ service cloud.firestore {
     // ---------- activity logs ----------
     match /activityLogs/{logId} {
       allow read: if owns(resource.data);
-      allow create: if isStaff() && request.resource.data.actorId == uid()
-        && (isAdmin() || request.resource.data.ownerId == uid());
+      allow create: if request.resource.data.actorId == uid() && (
+        (isStaff() && (isAdmin() || request.resource.data.ownerId == uid()))
+        || (isDoor() && request.resource.data.action == 'check_in' && doorFor(request.resource.data)));
       allow delete: if isAdmin();
     }
   }

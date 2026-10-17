@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Badge, EmptyState, Progress, Skeleton } from '@/components/ui/misc'
 import { Dialog } from '@/components/ui/dialog'
 import { CalendarButton } from '@/components/TicketCard'
+import { FollowButton, SaveButton } from '@/components/SaveFollow'
+import { EventUpdates } from '@/components/EventUpdates'
 import { AttendeeFields, cleanAttendee, useAttendeeForm, validateAttendee } from '@/components/AttendeeForm'
 import { EventImage } from '@/components/EventImage'
 
@@ -118,13 +120,18 @@ export default function EventDetail() {
           </div>
           <h1 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-balance sm:text-4xl">{event.title}</h1>
           {event.ownerName && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Hosted by{' '}
-              <Link to={`/clubs/${event.ownerId}`} className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">
-                {event.ownerName}
-              </Link>
-            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <p className="text-sm text-muted-foreground">
+                Hosted by{' '}
+                <Link to={`/clubs/${event.ownerId}`} className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">
+                  {event.ownerName}
+                </Link>
+              </p>
+              <FollowButton clubId={event.ownerId} name={event.ownerName} />
+            </div>
           )}
+
+          <EventUpdates eventId={event.id} className="mt-6" />
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <Fact icon={CalendarDays} label="Date" value={formatDate(event.date, { weekday: 'long', day: 'numeric', month: 'long' })} />
@@ -144,6 +151,7 @@ export default function EventDetail() {
             <Button variant="outline" onClick={share}>
               <Share2 /> Share
             </Button>
+            <SaveButton eventId={event.id} variant="button" />
             <CalendarButton event={event} className="[&>div]:left-0 [&>div]:right-auto" />
           </div>
 

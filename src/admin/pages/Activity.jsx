@@ -1,4 +1,4 @@
-import { Activity as ActivityIcon, ArrowUpCircle, CalendarPlus, CheckCircle2, Eye, EyeOff, Pencil, Trash2, XCircle } from 'lucide-react'
+import { Activity as ActivityIcon, ArrowUpCircle, Megaphone, CalendarPlus, CheckCircle2, Eye, EyeOff, Pencil, Trash2, XCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { subscribeLogs } from '@/services/logs'
@@ -15,6 +15,7 @@ const ACTIONS = {
   event_published: { icon: Eye, tone: 'text-success', text: (l) => <>Published <b>{l.eventTitle}</b></> },
   event_hidden: { icon: EyeOff, tone: 'text-muted-foreground', text: (l) => <>Hid <b>{l.eventTitle}</b></> },
   event_pending: { icon: Eye, tone: 'text-warning', text: (l) => <>Submitted <b>{l.eventTitle}</b> for approval</> },
+  event_update_posted: { icon: Megaphone, tone: 'text-warning', text: (l) => <>Posted an update on <b>{l.eventTitle}</b></> },
   event_deleted: { icon: Trash2, tone: 'text-danger', text: (l) => <>Deleted <b>{l.eventTitle}</b></> },
 }
 
