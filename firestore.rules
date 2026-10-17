@@ -5,6 +5,8 @@ rules_version = '2';
 //   events/{eventId}                     tiers: { [tierId]: { name, price, totalSlots, bookedSlots, order } }
 //                                        txn: id of the booking that last changed bookedSlots
 //   events/{eventId}/holders/{uid}       count: tickets this visitor holds for the event
+//   events/{eventId}/promos/{CODE}       type: 'percent' | 'fixed' | 'free', value, maxUses, uses, active, tierIds
+//   clubs/{uid}                          public organizer profile (name, bio, links)
 //   bookings/{bookingId}                 one order: `quantity` tickets of one tier
 //   waitlists/{eventId_tierId_uid}
 //   settings/public                      socials, cloudinary (public read, admin write)
@@ -33,6 +35,7 @@ service cloud.firestore {
     function eventPath(id) { return /databases/$(database)/documents/events/$(id); }
     function bookingPath(id) { return /databases/$(database)/documents/bookings/$(id); }
     function holderPath(eventId, u) { return /databases/$(database)/documents/events/$(eventId)/holders/$(u); }
+    function promoPath(eventId, code) { return /databases/$(database)/documents/events/$(eventId)/promos/$(code); }
 
     // ---------- users ----------
     match /users/{userId} {
@@ -141,6 +144,43 @@ service cloud.firestore {
             );
         }
       }
+
+      // Promo codes. Anyone who knows a code can read it; only the organizer can list them.
+      match /promos/{code} {
+        allow get: if true;
+        allow list: if owns(get(eventPath(eventId)).data);
+        allow create: if owns(get(eventPath(eventId)).data) && validPromo(request.resource.data);
+        allow delete: if owns(get(eventPath(eventId)).data);
+        allow update: if (owns(get(eventPath(eventId)).data) && validPromo(request.resource.data)) || promoUse();
+
+        function validPromo(d) {
+          return d.type in ['percent', 'fixed', 'free']
+            && d.value is int && d.value >= 0 && (d.type != 'percent' || d.value <= 100)
+            && d.maxUses is int && d.maxUses >= 1
+            && d.uses is int && d.active is bool && d.tierIds is list;
+        }
+
+        // A booking uses the code: `uses` goes up by exactly the booking's quantity.
+        function promoUse() {
+          let d = request.resource.data;
+          let booking = getAfter(bookingPath(d.txn)).data;
+          return signedIn()
+            && !exists(bookingPath(d.txn))
+            && booking.eventId == eventId && booking.promoCode == code
+            && d.diff(resource.data).affectedKeys().hasOnly(['uses', 'txn'])
+            && d.uses == resource.data.uses + booking.quantity
+            && d.uses <= resource.data.maxUses
+            && resource.data.active == true;
+        }
+      }
+    }
+
+    // ---------- clubs (public organizer profiles) ----------
+    match /clubs/{clubId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isOrganizer() && clubId == uid()
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80);
     }
 
     // ---------- bookings ----------
@@ -158,7 +198,7 @@ service cloud.firestore {
       function validBookingShape(d) {
         return d.keys().hasOnly(['eventId', 'tierId', 'userId', 'ownerId', 'fullName', 'phone', 'email',
                                  'regNumber', 'school', 'quantity', 'tickets', 'ticketCodes', 'status',
-                                 'bookedAt', 'source', 'eventTitle', 'tierName', 'unitPrice'])
+                                 'bookedAt', 'source', 'eventTitle', 'tierName', 'unitPrice', 'promoCode', 'discount'])
           && d.fullName is string && d.fullName.size() >= 3 && d.fullName.size() <= 80
           && d.phone is string && d.phone.matches('^0[17][0-9]{8}$')
           && d.quantity is int && d.quantity >= 1 && d.quantity <= 20
@@ -176,7 +216,26 @@ service cloud.firestore {
           && ev.txn == bookingId
           && ev.ownerId == d.ownerId
           && d.unitPrice == ev.tiers[d.tierId].price
-          && getAfter(holderPath(d.eventId, uid())).data.txn == bookingId;
+          && getAfter(holderPath(d.eventId, uid())).data.txn == bookingId
+          && promoOk(d);
+      }
+
+      // No code → no discount. With a code → the promo was used in this same write and the
+      // discount matches what the code gives for this tier and quantity.
+      function promoOk(d) {
+        return d.get('promoCode', '') == ''
+          ? d.get('discount', 0) == 0
+          : promoDiscountOk(d, get(promoPath(d.eventId, d.promoCode)).data);
+      }
+
+      function promoDiscountOk(d, p) {
+        let gross = d.unitPrice * d.quantity;
+        return getAfter(promoPath(d.eventId, d.promoCode)).data.txn == bookingId
+          && p.active == true
+          && (p.tierIds.size() == 0 || d.tierId in p.tierIds)
+          && d.discount == (p.type == 'free' ? gross
+                           : p.type == 'percent' ? math.floor(gross * p.value / 100)
+                           : math.min(gross, p.value * d.quantity));
       }
 
       function staffBookingCreate() {

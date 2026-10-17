@@ -36,12 +36,12 @@ export default function Bookings() {
     return {
       tickets: ok.reduce((s, b) => s + b.quantity, 0),
       checkedIn: ok.reduce((s, b) => s + b.tickets.filter((t) => t.checkedIn).length, 0),
-      value: ok.reduce((s, b) => s + b.unitPrice * b.quantity, 0),
+      value: ok.reduce((s, b) => s + b.unitPrice * b.quantity - (b.discount || 0), 0),
     }
   }, [list])
 
   function exportCsv() {
-    const rows = [['Ticket code', 'Event', 'Ticket type', 'Name', 'Phone', 'Email', 'Reg. no.', 'School', 'Price', 'Status', 'Checked in', 'Booked at', 'Source']]
+    const rows = [['Ticket code', 'Event', 'Ticket type', 'Name', 'Phone', 'Email', 'Reg. no.', 'School', 'Price', 'Promo code', 'Discount', 'Status', 'Checked in', 'Booked at', 'Source']]
     list.forEach((b) =>
       b.tickets.forEach((t) =>
         rows.push([
@@ -54,6 +54,8 @@ export default function Bookings() {
           b.regNumber,
           b.school,
           b.unitPrice,
+          b.promoCode || '',
+          b.discount ? Math.round(b.discount / b.quantity) : 0,
           b.status,
           t.checkedIn ? 'yes' : 'no',
           toDate(b.bookedAt)?.toLocaleString('en-KE') || '',
@@ -150,6 +152,7 @@ export default function Bookings() {
                             <Badge variant="outline">×{b.quantity}</Badge>
                           )}
                           {b.source === 'waitlist' && <Badge variant="warning">Waitlist</Badge>}
+                          {b.promoCode && <Badge variant="primary">{b.promoCode}</Badge>}
                         </div>
                       </td>
                       <td className="hidden px-4 py-3 text-xs whitespace-nowrap text-muted-foreground sm:table-cell">

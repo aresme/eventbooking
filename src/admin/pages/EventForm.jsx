@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, ImageUp, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { saveEvent } from '@/services/events'
 import { DEFAULT_SETTINGS, generateDescription, searchUnsplash, subscribeSettings, uploadToCloudinary } from '@/services/settings'
-import { cn, SCHOOLS, shortId, tierList } from '@/lib/utils'
+import { CATEGORIES, cn, SCHOOLS, shortId, tierList } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Select, Switch, Textarea } from '@/components/ui/form'
 import { Card, CardHeader, EmptyState } from '@/components/ui/misc'
@@ -16,6 +16,7 @@ const EMPTY = {
   title: '',
   description: '',
   type: 'normal',
+  category: '',
   school: '',
   date: '',
   time: '18:00',
@@ -34,6 +35,8 @@ export default function EventForm() {
   const { eventsById, loading } = useDashboard()
   const navigate = useNavigate()
   const existing = eventId ? eventsById[eventId] : null
+  const [params] = useSearchParams()
+  const copyFrom = !eventId && params.get('from') ? eventsById[params.get('from')] : null
 
   const [values, setValues] = useState(EMPTY)
   const [tiers, setTiers] = useState([newTier()])
@@ -49,6 +52,16 @@ export default function EventForm() {
       setTiers(tierList(existing))
     }
   }, [existing])
+
+  // "Duplicate": same details and ticket types, new date, nothing booked.
+  useEffect(() => {
+    if (copyFrom && loadedFor.current !== `copy-${copyFrom.id}`) {
+      loadedFor.current = `copy-${copyFrom.id}`
+      setValues({ ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, copyFrom[k] ?? EMPTY[k]])), title: `${copyFrom.title} (copy)`, date: '' })
+      setTiers(tierList(copyFrom).map((t) => ({ ...t, id: shortId(), bookedSlots: 0 })))
+      toast.info('Copied. Pick a new date, then publish.')
+    }
+  }, [copyFrom])
 
   if (eventId && !existing) {
     return loading ? null : <EmptyState title="Event not found" description="It may have been deleted, or it belongs to another organizer." action={<Button to="/admin/events">Back to events</Button>} />
@@ -118,6 +131,14 @@ export default function EventForm() {
               </Field>
               <DescriptionField values={values} onChange={set('description')} />
               <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Category">
+                  {(p) => (
+                    <Select {...p} value={values.category} onChange={set('category')}>
+                      <option value="">Choose a category</option>
+                      {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.emoji} {c.label}</option>)}
+                    </Select>
+                  )}
+                </Field>
                 <Field label="Who can attend">
                   {(p) => (
                     <Select {...p} value={values.type} onChange={set('type')}>
@@ -127,7 +148,7 @@ export default function EventForm() {
                   )}
                 </Field>
                 {values.type === 'school' && (
-                  <Field label="School" error={errors.school}>
+                  <Field label="School" error={errors.school} className="sm:col-span-2">
                     {(p) => (
                       <Select {...p} value={values.school} onChange={set('school')}>
                         <option value="">Select school</option>

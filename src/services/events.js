@@ -63,6 +63,7 @@ export async function saveEvent({ id, values, tiers, existing, user }) {
     title: values.title.trim(),
     description: values.description.trim(),
     type: values.type,
+    category: values.category || 'other',
     school: values.type === 'school' ? values.school : '',
     date: values.date,
     time: values.time,

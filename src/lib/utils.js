@@ -129,3 +129,40 @@ export function downloadCsv(filename, rows) {
   a.click()
   URL.revokeObjectURL(a.href)
 }
+
+// ---------- categories ----------
+export const CATEGORIES = [
+  { value: 'music', label: 'Music & Parties', emoji: '🎶' },
+  { value: 'tech', label: 'Tech', emoji: '💻' },
+  { value: 'sports', label: 'Sports', emoji: '⚽' },
+  { value: 'career', label: 'Career', emoji: '💼' },
+  { value: 'arts', label: 'Arts & Culture', emoji: '🎭' },
+  { value: 'academic', label: 'Academic', emoji: '📚' },
+  { value: 'faith', label: 'Faith', emoji: '🙏' },
+  { value: 'wellness', label: 'Wellness', emoji: '🧘' },
+  { value: 'other', label: 'Other', emoji: '✨' },
+]
+
+export function categoryOf(event) {
+  return CATEGORIES.find((c) => c.value === event?.category) || null
+}
+
+// ---------- promo codes ----------
+/** Discount in KES for `quantity` tickets at `unitPrice`. Must match promoDiscountOk in firestore.rules. */
+export function promoDiscount(promo, unitPrice, quantity) {
+  const gross = unitPrice * quantity
+  if (!promo) return 0
+  if (promo.type === 'free') return gross
+  if (promo.type === 'percent') return Math.floor((gross * promo.value) / 100)
+  return Math.min(gross, promo.value * quantity)
+}
+
+export function promoLabel(promo) {
+  if (promo.type === 'free') return 'Free tickets'
+  if (promo.type === 'percent') return `${promo.value}% off`
+  return `${formatPrice(promo.value)} off per ticket`
+}
+
+export function normalizeCode(raw) {
+  return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '')
+}

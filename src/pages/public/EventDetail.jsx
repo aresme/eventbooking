@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, CalendarDays, Clock, GraduationCap, Hourglass, MapPin, Minus, Plus, Share2, Star, Users } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,7 +8,9 @@ import { subscribeEvent } from '@/services/events'
 import { BookingError, createBooking, subscribeBooking } from '@/services/bookings'
 import { AlreadyWaitlistedError, joinWaitlist } from '@/services/waitlist'
 import { sendBookingConfirmation } from '@/services/email'
-import { cn, eventStats, formatDate, formatPrice, formatTime, isEnded, tierList } from '@/lib/utils'
+import { checkPromo, PromoError } from '@/services/promos'
+import { promoDiscount, promoLabel } from '@/lib/utils'
+import { categoryOf, cn, eventStats, formatDate, formatPrice, formatTime, isEnded, tierList } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge, EmptyState, Progress, Skeleton } from '@/components/ui/misc'
 import { Dialog } from '@/components/ui/dialog'
@@ -104,13 +106,25 @@ export default function EventDetail() {
                 <Star className="fill-current" /> Featured
               </Badge>
             )}
+            {categoryOf(event) && (
+              <Badge variant="outline">
+                {categoryOf(event).emoji} {categoryOf(event).label}
+              </Badge>
+            )}
             <Badge variant={event.type === 'school' ? 'primary' : 'default'}>
               {event.type === 'school' ? <><GraduationCap /> {event.school}</> : 'Open to everyone'}
             </Badge>
             {ended && <Badge variant="outline">Ended</Badge>}
           </div>
           <h1 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-balance sm:text-4xl">{event.title}</h1>
-          {event.ownerName && <p className="mt-2 text-sm text-muted-foreground">Hosted by <span className="font-semibold text-foreground">{event.ownerName}</span></p>}
+          {event.ownerName && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Hosted by{' '}
+              <Link to={`/clubs/${event.ownerId}`} className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">
+                {event.ownerName}
+              </Link>
+            </p>
+          )}
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <Fact icon={CalendarDays} label="Date" value={formatDate(event.date, { weekday: 'long', day: 'numeric', month: 'long' })} />
@@ -234,11 +248,18 @@ function BookingDialog({ open, onClose, event, tier, qty }) {
   const form = useAttendeeForm()
   const [step, setStep] = useState('details')
   const [submitting, setSubmitting] = useState(false)
+  const [promo, setPromo] = useState(null)
   const isSchool = event.type === 'school'
+  const gross = tier.price * qty
+  const discount = promo ? promoDiscount(promo, tier.price, qty) : 0
+  const total = gross - discount
 
   useEffect(() => {
     if (open) setStep('details')
   }, [open])
+
+  // A code checked for one tier/quantity may not apply after changing them.
+  useEffect(() => setPromo(null), [tier.id, qty])
 
   function next(e) {
     e.preventDefault()
@@ -255,7 +276,7 @@ function BookingDialog({ open, onClose, event, tier, qty }) {
     setSubmitting(true)
     const details = cleanAttendee(form.values, isSchool)
     try {
-      const bookingId = await createBooking({ eventId: event.id, tierId: tier.id, uid: user.uid, details, quantity: qty })
+      const bookingId = await createBooking({ eventId: event.id, tierId: tier.id, uid: user.uid, details, quantity: qty, promoCode: promo?.code })
       toast.success(qty > 1 ? `${qty} tickets booked!` : 'You’re in! Ticket booked.')
       if (details.email) {
         // Fire and forget: email must never block the booking.
@@ -289,7 +310,7 @@ function BookingDialog({ open, onClose, event, tier, qty }) {
         ) : (
           <>
             <Button variant="outline" onClick={() => setStep('details')} disabled={submitting}>Back</Button>
-            <Button onClick={confirm} loading={submitting}>Confirm · {formatPrice(tier.price * qty)}</Button>
+            <Button onClick={confirm} loading={submitting}>Confirm · {formatPrice(total)}</Button>
           </>
         )
       }
@@ -318,12 +339,72 @@ function BookingDialog({ open, onClose, event, tier, qty }) {
             ))}
           <div className="flex justify-between gap-4 bg-muted/50 px-4 py-3">
             <dt className="font-bold">Total</dt>
-            <dd className="text-lg font-extrabold text-primary">{formatPrice(tier.price * qty)}</dd>
+            <dd className="text-right">
+              {discount > 0 && <span className="mr-2 text-sm text-muted-foreground line-through">{formatPrice(gross)}</span>}
+              <span className="text-lg font-extrabold text-primary">{formatPrice(total)}</span>
+            </dd>
           </div>
         </dl>
       )}
-      {step === 'confirm' && tier.price > 0 && <p className="mt-3 text-xs text-muted-foreground">Payment is collected at the venue.</p>}
+      {step === 'confirm' && tier.price > 0 && (
+        <PromoField eventId={event.id} tierId={tier.id} qty={qty} promo={promo} onChange={setPromo} discount={discount} />
+      )}
+      {step === 'confirm' && total > 0 && <p className="mt-3 text-xs text-muted-foreground">Payment is collected at the venue.</p>}
     </Dialog>
+  )
+}
+
+function PromoField({ eventId, tierId, qty, promo, onChange, discount }) {
+  const [open, setOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [checking, setChecking] = useState(false)
+
+  async function apply(e) {
+    e.preventDefault()
+    setChecking(true)
+    setError('')
+    try {
+      onChange(await checkPromo(eventId, code, tierId, qty))
+    } catch (err) {
+      setError(err instanceof PromoError ? err.message : 'Couldn’t check that code')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  if (promo) {
+    return (
+      <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-success-soft px-3 py-2 text-sm">
+        <span>
+          <span className="font-mono font-bold">{promo.code}</span> · {promoLabel(promo)} <span className="font-semibold text-success">(−{formatPrice(discount)})</span>
+        </span>
+        <button onClick={() => onChange(null)} className="font-semibold text-muted-foreground hover:text-foreground">Remove</button>
+      </div>
+    )
+  }
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="mt-3 text-sm font-semibold text-primary hover:underline">
+        Have a promo code?
+      </button>
+    )
+  }
+  return (
+    <form onSubmit={apply} className="mt-3 space-y-1.5">
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="PROMO CODE"
+          aria-label="Promo code"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-card px-3 font-mono text-sm uppercase focus:border-primary focus:outline-none"
+        />
+        <Button type="submit" variant="outline" loading={checking}>Apply</Button>
+      </div>
+      {error && <p className="text-xs font-medium text-danger">{error}</p>}
+    </form>
   )
 }
 

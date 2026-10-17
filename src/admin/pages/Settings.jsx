@@ -1,23 +1,84 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2, CircleDashed } from 'lucide-react'
+import { CheckCircle2, CircleDashed, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { DEFAULT_SETTINGS, saveSettings, subscribeSettings } from '@/services/settings'
 import { changePassword } from '@/services/users'
+import { saveClub, subscribeClub } from '@/services/clubs'
 import { emailEnabled } from '@/services/email'
 import { Button } from '@/components/ui/button'
-import { Field, Input } from '@/components/ui/form'
+import { Field, Input, Textarea } from '@/components/ui/form'
 import { Card, CardHeader } from '@/components/ui/misc'
 
 export default function Settings() {
   const { isAdmin } = useAuth()
   return (
     <div className="grid gap-6 lg:grid-cols-2">
+      <ClubProfile />
       {isAdmin && <SiteSettings />}
       <PasswordCard />
       <IntegrationStatus />
     </div>
+  )
+}
+
+function ClubProfile() {
+  const { user } = useAuth()
+  const { data: club, loading } = useSubscription((ok, err) => subscribeClub(user.uid, ok, err), [user.uid])
+  const [form, setForm] = useState({ name: '', bio: '', logo: '', website: '', instagram: '' })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!loading) {
+      setForm({
+        name: club?.name || user.profile?.org || user.profile?.displayName || '',
+        bio: club?.bio || '',
+        logo: club?.logo || '',
+        website: club?.website || '',
+        instagram: club?.instagram || '',
+      })
+    }
+  }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  async function save(e) {
+    e.preventDefault()
+    if (!form.name.trim()) return toast.error('Add a club name')
+    setSaving(true)
+    try {
+      await saveClub(user.uid, form)
+      toast.success('Club page updated')
+    } catch {
+      toast.error('Could not save your club page')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title="Club page"
+        description="Shown to students on your public page and on your events."
+        action={
+          <Button href={`/clubs/${user.uid}`} target="_blank" variant="ghost" size="sm">
+            <ExternalLink /> View
+          </Button>
+        }
+      />
+      <form onSubmit={save} className="space-y-3 p-5">
+        <Field label="Club / organizer name">{(p) => <Input {...p} value={form.name} onChange={set('name')} placeholder="e.g. Computing Society" />}</Field>
+        <Field label="About" optional>{(p) => <Textarea {...p} rows={3} value={form.bio} onChange={set('bio')} placeholder="What does your club do? When do you meet?" />}</Field>
+        <Field label="Logo URL" optional>{(p) => <Input {...p} type="url" value={form.logo} onChange={set('logo')} placeholder="https://…" />}</Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Website" optional>{(p) => <Input {...p} type="url" value={form.website} onChange={set('website')} />}</Field>
+          <Field label="Instagram" optional>{(p) => <Input {...p} type="url" value={form.instagram} onChange={set('instagram')} placeholder="https://instagram.com/…" />}</Field>
+        </div>
+        <Button type="submit" loading={saving}>Save club page</Button>
+      </form>
+    </Card>
   )
 }
 

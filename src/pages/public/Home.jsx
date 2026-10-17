@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { CalendarSearch, Flame, Gift, Globe, GraduationCap, LayoutGrid, QrCode, Search, Ticket, CalendarDays, X } from 'lucide-react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { subscribePublishedEvents } from '@/services/events'
-import { eventStats, formatDate, formatTime, isEnded } from '@/lib/utils'
+import { CATEGORIES, cn, eventStats, formatDate, formatTime, isEnded } from '@/lib/utils'
 import { EventCard, EventCardSkeleton } from '@/components/EventCard'
 import { Button } from '@/components/ui/button'
 import { Badge, EmptyState, Segmented } from '@/components/ui/misc'
@@ -23,6 +23,7 @@ const PAGE = 9
 export default function Home() {
   const { data: events = [], loading, error } = useSubscription(subscribePublishedEvents, [], { initial: [] })
   const [filter, setFilter] = useState('all')
+  const [category, setCategory] = useState('all')
   const [q, setQ] = useState('')
   const [limit, setLimit] = useState(PAGE)
   const [showPast, setShowPast] = useState(false)
@@ -37,6 +38,7 @@ export default function Home() {
     if (filter === 'normal') list = list.filter((e) => e.type === 'normal')
     if (filter === 'free') list = list.filter((e) => eventStats(e).minPrice === 0)
     if (filter === 'week') list = list.filter((e) => new Date(`${e.date}T23:59`) <= weekEnd)
+    if (category !== 'all') list = list.filter((e) => (e.category || 'other') === category)
     const term = q.trim().toLowerCase()
     if (term) {
       list = list.filter((e) => [e.title, e.venue, e.school, e.description].some((f) => f?.toLowerCase().includes(term)))
@@ -46,7 +48,7 @@ export default function Home() {
       if (filter === 'trending') return eventStats(b).booked - eventStats(a).booked
       return byDate(a, b)
     })
-  }, [events, upcoming, filter, q, showPast])
+  }, [events, upcoming, filter, category, q, showPast])
 
   const totalBooked = events.reduce((s, e) => s + eventStats(e).booked, 0)
 
@@ -125,7 +127,15 @@ export default function Home() {
             setFilter(v)
             setLimit(PAGE)
           }}
-          className="-mx-4 mb-8 px-4 sm:mx-0 sm:px-0"
+          className="-mx-4 mb-3 px-4 sm:mx-0 sm:px-0"
+        />
+        <CategoryChips
+          events={showPast ? events : upcoming}
+          value={category}
+          onChange={(v) => {
+            setCategory(v)
+            setLimit(PAGE)
+          }}
         />
 
         {error ? (
@@ -137,7 +147,7 @@ export default function Home() {
             icon={CalendarSearch}
             title="No events found"
             description={q ? 'Try a different search term or filter.' : 'New events are added all the time. Check back soon.'}
-            action={(q || filter !== 'all') && <Button variant="outline" onClick={() => { setQ(''); setFilter('all') }}>Reset filters</Button>}
+            action={(q || filter !== 'all' || category !== 'all') && <Button variant="outline" onClick={() => { setQ(''); setFilter('all'); setCategory('all') }}>Reset filters</Button>}
           />
         ) : (
           <>
@@ -183,6 +193,32 @@ export default function Home() {
         </div>
       </section>
     </>
+  )
+}
+
+/** Category chips; only categories that have events are shown, with counts. */
+function CategoryChips({ events, value, onChange }) {
+  const counts = events.reduce((m, e) => ((m[e.category || 'other'] = (m[e.category || 'other'] || 0) + 1), m), {})
+  const used = CATEGORIES.filter((c) => counts[c.value])
+  if (used.length < 2) return <div className="mb-8" />
+  return (
+    <div className="no-scrollbar -mx-4 mb-8 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Categories">
+      {[{ value: 'all', label: 'All categories', emoji: '' }, ...used].map((c) => (
+        <button
+          key={c.value}
+          onClick={() => onChange(c.value)}
+          aria-pressed={value === c.value}
+          className={cn(
+            'shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+            value === c.value ? 'bg-primary-soft text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          )}
+        >
+          {c.emoji && <span className="mr-1">{c.emoji}</span>}
+          {c.label}
+          {c.value !== 'all' && <span className="ml-1.5 text-xs opacity-70">{counts[c.value]}</span>}
+        </button>
+      ))}
+    </div>
   )
 }
 

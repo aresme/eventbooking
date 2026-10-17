@@ -9,6 +9,7 @@ import { auth, db } from '@/lib/firebase'
 import { saveEvent } from '@/services/events'
 import { BookingError, cancelOwnBooking, checkInTicket, createBooking, findBookingByCode, promoteFromWaitlist, staffCancelBooking } from '@/services/bookings'
 import { AlreadyWaitlistedError, joinWaitlist } from '@/services/waitlist'
+import { createPromo } from '@/services/promos'
 
 let env
 const details = { fullName: 'Jane Doe', phone: '0712345678', email: '', regNumber: '', school: '' }
@@ -135,6 +136,19 @@ describe('full booking lifecycle with real services', () => {
     expect((await readEvent(id)).tiers.g.bookedSlots).toBe(0)
     // and can book again afterwards (holder count went back down)
     await createBooking({ eventId: id, tierId: 'g', uid: v, details, quantity: 3 })
+  })
+
+  it('a visitor books with a promo code and gets the discount', async () => {
+    const admin = await asStaff('admin')
+    const id = await saveEvent({ values: values({ title: 'Promo night' }), tiers: [{ id: 'p', name: 'Pass', price: 1000, totalSlots: 10 }], user: admin })
+    await createPromo(id, { code: 'half', type: 'percent', value: 50, maxUses: 2 })
+    const v = await asVisitor()
+    const bId = await createBooking({ eventId: id, tierId: 'p', uid: v, details, quantity: 2, promoCode: 'HALF' })
+    const b = (await getDoc(doc(db, 'bookings', bId))).data()
+    expect(b.discount).toBe(1000)
+    expect(b.promoCode).toBe('HALF')
+    const v2 = await asVisitor()
+    await expect(createBooking({ eventId: id, tierId: 'p', uid: v2, details, quantity: 1, promoCode: 'HALF' })).rejects.toThrow(/used up/)
   })
 
   it('staff cancels a booking, promotes from the waitlist and checks in', async () => {

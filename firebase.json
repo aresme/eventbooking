@@ -2,7 +2,15 @@
   "auth": {
     "providers": {
       "anonymous": true,
-      "emailPassword": true
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "UniVibe",
+        "supportEmail": "kkiplangat65@gmail.com",
+        "authorizedRedirectUris": [
+          "https://univibe-events-9c77f.web.app",
+          "https://univibe-events-9c77f.firebaseapp.com"
+        ]
+      }
     }
   },
   "hosting": {

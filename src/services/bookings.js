@@ -13,7 +13,8 @@ import {
   limit,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { ticketCode } from '@/lib/utils'
+import { normalizeCode, promoDiscount, ticketCode } from '@/lib/utils'
+import { rememberBooking } from '@/lib/deviceTickets'
 import { logActivity } from './logs'
 
 const bookingsCol = collection(db, 'bookings')
@@ -38,12 +39,15 @@ function newTickets(quantity) {
  * Book `quantity` tickets in one transaction: re-reads the event so two people can't take the
  * last seat at the same time. firestore.rules check the same limits on the server.
  */
-export async function createBooking({ eventId, tierId, uid, details, quantity }) {
+export async function createBooking({ eventId, tierId, uid, details, quantity, promoCode }) {
   const bookingRef = doc(bookingsCol)
+  const code = normalizeCode(promoCode)
 
   await runTransaction(db, async (tx) => {
     const eventSnap = await tx.get(doc(db, 'events', eventId))
     const holderSnap = await tx.get(holderRef(eventId, uid))
+    const promoRef = code ? doc(db, 'events', eventId, 'promos', code) : null
+    const promoSnap = promoRef ? await tx.get(promoRef) : null
     if (!eventSnap.exists()) throw new BookingError('This event no longer exists.')
 
     const event = eventSnap.data()
@@ -66,6 +70,16 @@ export async function createBooking({ eventId, tierId, uid, details, quantity })
       )
     }
 
+    let discount = 0
+    if (promoRef) {
+      const promo = promoSnap.exists() ? promoSnap.data() : null
+      if (!promo || !promo.active) throw new BookingError('That promo code is no longer valid.')
+      if (promo.tierIds?.length && !promo.tierIds.includes(tierId)) throw new BookingError('That promo code doesn’t apply to this ticket type.')
+      if (promo.uses + quantity > promo.maxUses) throw new BookingError('That promo code has been used up.')
+      discount = promoDiscount(promo, tier.price, quantity)
+      tx.update(promoRef, { uses: promo.uses + quantity, txn: bookingRef.id })
+    }
+
     tx.set(bookingRef, {
       eventId,
       tierId,
@@ -83,12 +97,15 @@ export async function createBooking({ eventId, tierId, uid, details, quantity })
       ...newTickets(quantity),
       status: 'confirmed',
       source: 'web',
+      promoCode: code,
+      discount,
       bookedAt: serverTimestamp(),
     })
     tx.update(eventSnap.ref, { [`tiers.${tierId}.bookedSlots`]: tier.bookedSlots + quantity, txn: bookingRef.id })
     tx.set(holderRef(eventId, uid), { count: held + quantity, txn: bookingRef.id })
   })
 
+  rememberBooking(bookingRef.id)
   return bookingRef.id
 }
 

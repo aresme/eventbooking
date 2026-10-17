@@ -37,7 +37,7 @@ export function sendBookingConfirmation({ bookingId, booking, event }) {
     ...eventParams(event),
     tier_name: booking.tierName,
     quantity: booking.quantity,
-    total: formatPrice(booking.unitPrice * booking.quantity),
+    total: formatPrice(booking.unitPrice * booking.quantity - (booking.discount || 0)),
     ticket_codes: booking.ticketCodes.join(', '),
     ticket_url: `${window.location.origin}/tickets/${bookingId}`,
   })

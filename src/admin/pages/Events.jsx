@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { QRCodeCanvas } from 'qrcode.react'
-import { CalendarDays, Check, Copy, Download, Eye, EyeOff, MoreHorizontal, Pencil, PlusCircle, QrCode, Search, Star, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, Copy, CopyPlus, Download, Eye, EyeOff, MoreHorizontal, Pencil, PlusCircle, QrCode, Search, Star, Tag, Trash2 } from 'lucide-react'
+import PromoDialog from './PromoDialog'
 import { useAuth } from '@/hooks/useAuth'
 import { deleteEvent, setEventFeatured, setEventStatus } from '@/services/events'
 import { cn, eventStats, formatDate, formatPrice, isEnded } from '@/lib/utils'
@@ -25,6 +26,7 @@ export default function Events() {
   const [params, setParams] = useSearchParams()
   const [q, setQ] = useState('')
   const [qrEvent, setQrEvent] = useState(null)
+  const [promoEvent, setPromoEvent] = useState(null)
   const confirm = useConfirm()
   const tab = params.get('status') || 'upcoming'
 
@@ -109,17 +111,19 @@ export default function Events() {
               onFeature={() => run(() => setEventFeatured(e, !e.featured), e.featured ? 'Removed from featured' : 'Featured on home page')}
               onDelete={() => remove(e)}
               onQr={() => setQrEvent(e)}
+              onPromos={() => setPromoEvent(e)}
             />
           ))}
         </div>
       )}
 
       <PromoQrDialog event={qrEvent} onClose={() => setQrEvent(null)} />
+      <PromoDialog event={promoEvent} onClose={() => setPromoEvent(null)} />
     </div>
   )
 }
 
-function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr }) {
+function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr, onPromos }) {
   const [menu, setMenu] = useState(false)
   const s = eventStats(event)
   const status = STATUS[event.status] || STATUS.hidden
@@ -162,7 +166,9 @@ function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr }) {
               <div className="animate-fade-up absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border bg-card p-1 shadow-xl" onClick={() => setMenu(false)}>
                 <MenuItem icon={Pencil} to={`/admin/events/${event.id}/edit`}>Edit</MenuItem>
                 {event.status === 'published' && <MenuItem icon={Eye} href={`/events/${event.id}`}>View public page</MenuItem>}
-                <MenuItem icon={QrCode} onClick={onQr}>Promo QR code</MenuItem>
+                <MenuItem icon={Tag} onClick={onPromos}>Promo codes</MenuItem>
+                <MenuItem icon={QrCode} onClick={onQr}>Poster QR code</MenuItem>
+                <MenuItem icon={CopyPlus} to={`/admin/events/new?from=${event.id}`}>Duplicate</MenuItem>
                 {isAdmin && <MenuItem icon={Star} onClick={onFeature}>{event.featured ? 'Unfeature' : 'Feature on home'}</MenuItem>}
                 {event.status === 'published' && <MenuItem icon={EyeOff} onClick={() => onStatus('hidden')}>Hide from public</MenuItem>}
                 {event.status === 'hidden' && (isAdmin
@@ -198,7 +204,7 @@ function PromoQrDialog({ event, onClose }) {
   }
 
   return (
-    <Dialog open={Boolean(event)} onClose={onClose} title="Promo QR code" description="Print it on posters. Scanning opens the event page." size="sm">
+    <Dialog open={Boolean(event)} onClose={onClose} title="Poster QR code" description="Print it on posters. Scanning opens the event page." size="sm">
       {event && (
         <div className="flex flex-col items-center gap-4">
           <div className="rounded-xl bg-white p-4 ring-1 ring-border">

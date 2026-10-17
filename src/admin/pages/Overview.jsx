@@ -15,7 +15,7 @@ export default function Overview() {
   const stats = useMemo(() => {
     const confirmed = bookings.filter((b) => b.status === 'confirmed')
     const tickets = confirmed.reduce((s, b) => s + b.quantity, 0)
-    const revenue = confirmed.reduce((s, b) => s + (b.unitPrice || 0) * b.quantity, 0)
+    const revenue = confirmed.reduce((s, b) => s + (b.unitPrice || 0) * b.quantity - (b.discount || 0), 0)
     const today = new Date().toDateString()
     const todayCount = confirmed.filter((b) => toDate(b.bookedAt)?.toDateString() === today).reduce((s, b) => s + b.quantity, 0)
     const checkedIn = confirmed.reduce((s, b) => s + b.tickets.filter((t) => t.checkedIn).length, 0)

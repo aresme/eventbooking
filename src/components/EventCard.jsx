@@ -1,11 +1,12 @@
 import { Link } from 'react-router-dom'
 import { CalendarDays, Flame, GraduationCap, MapPin, Star } from 'lucide-react'
-import { eventStats, formatDate, formatPrice, formatTime, isEnded } from '@/lib/utils'
+import { categoryOf, eventStats, formatDate, formatPrice, formatTime, isEnded } from '@/lib/utils'
 import { Badge, Skeleton } from './ui/misc'
 import { EventImage } from '@/components/EventImage'
 
 export function EventCard({ event }) {
   const s = eventStats(event)
+  const cat = categoryOf(event)
   const ended = isEnded(event)
   const month = new Date(`${event.date}T00:00`).toLocaleString('en', { month: 'short' })
   const day = new Date(`${event.date}T00:00`).getDate()
@@ -27,6 +28,11 @@ export function EventCard({ event }) {
           {event.featured && (
             <Badge variant="featured">
               <Star className="fill-current" /> Featured
+            </Badge>
+          )}
+          {cat && cat.value !== 'other' && (
+            <Badge variant="glass">
+              {cat.emoji} {cat.label}
             </Badge>
           )}
           {event.type === 'school' && (

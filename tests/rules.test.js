@@ -258,3 +258,75 @@ describe('users & settings', () => {
     await assertSucceeds(setDoc(doc(staff('admin1'), 'settings/public'), { socials: {} }))
   })
 })
+
+describe('promo codes', () => {
+  const promo = (over = {}) => ({ type: 'percent', value: 20, maxUses: 3, uses: 0, active: true, tierIds: [], ...over })
+
+  function promoBatch(db, uid, { code = 'SAVE20', discount, qty = 1, bookingId = 'p1', uses = 0, over } = {}) {
+    const batch = writeBatch(db)
+    const codes = Array.from({ length: qty }, (_, i) => `UV-${bookingId}${i}`)
+    batch.set(doc(db, 'bookings', bookingId), bookingData(uid, { eventId: 'e3', unitPrice: 0, quantity: qty, ticketCodes: codes, tickets: codes.map((c) => ({ code: c, checkedIn: false })), promoCode: code, discount, ...over }))
+    batch.update(doc(db, 'events', 'e3'), { 'tiers.t1.bookedSlots': qty, txn: bookingId })
+    batch.set(doc(db, 'events', 'e3', 'holders', uid), { count: qty, txn: bookingId })
+    batch.update(doc(db, 'events', 'e3', 'promos', code), { uses: uses + qty, txn: bookingId })
+    return batch.commit()
+  }
+
+  beforeEach(async () => {
+    // e3 tier at KES 500 so discounts are non-zero.
+    await seed(async (db) => {
+      await updateDoc(doc(db, 'events/e3'), { 'tiers.t1.price': 500 })
+      await setDoc(doc(db, 'events/e3/promos/SAVE20'), promo())
+      await setDoc(doc(db, 'events/e3/promos/FREE'), promo({ type: 'free', value: 0, maxUses: 1 }))
+      await setDoc(doc(db, 'events/e3/promos/OFF'), promo({ active: false }))
+    })
+  })
+
+  const withPrice = (o) => ({ ...o, over: { unitPrice: 500, ...(o.over || {}) } })
+
+  it('a valid code gives exactly its discount', async () => {
+    await assertSucceeds(promoBatch(anon('v1'), 'v1', withPrice({ qty: 2, discount: 200 })))
+  })
+
+  it('rejects a bigger discount than the code gives', async () => {
+    await assertFails(promoBatch(anon('v1'), 'v1', withPrice({ qty: 2, discount: 1000 })))
+  })
+
+  it('rejects a discount without a code', async () => {
+    await assertFails(bookBatch(anon('v1'), 'v1', { eventId: 'e3', over: { unitPrice: 500, discount: 500 } }))
+  })
+
+  it('free codes make the booking free; uses are capped', async () => {
+    await assertSucceeds(promoBatch(anon('v1'), 'v1', withPrice({ code: 'FREE', discount: 500 })))
+    await assertFails(promoBatch(anon('v2'), 'v2', withPrice({ code: 'FREE', discount: 500, bookingId: 'p2', uses: 1 })))
+  })
+
+  it('inactive codes cannot be used', async () => {
+    await assertFails(promoBatch(anon('v1'), 'v1', withPrice({ code: 'OFF', discount: 100 })))
+  })
+
+  it('the code use counter cannot be bumped without a booking', async () => {
+    await assertFails(updateDoc(doc(anon('v1'), 'events/e3/promos/SAVE20'), { uses: 0, txn: 'nothing' }))
+  })
+
+  it('visitors can check a code they know but cannot list codes', async () => {
+    await assertSucceeds(getDoc(doc(anon('v1'), 'events/e3/promos/SAVE20')))
+    await assertFails(getDocs(collection(anon('v1'), 'events/e3/promos')))
+    await assertSucceeds(getDocs(collection(staff('org1'), 'events/e3/promos')))
+  })
+
+  it('only the event owner creates codes', async () => {
+    await assertSucceeds(setDoc(doc(staff('org1'), 'events/e3/promos/NEW'), promo()))
+    await assertFails(setDoc(doc(staff('org2'), 'events/e3/promos/NEW2'), promo()))
+    await assertFails(setDoc(doc(anon('v1'), 'events/e3/promos/NEW3'), promo()))
+  })
+})
+
+describe('clubs', () => {
+  it('organizers edit only their own public profile', async () => {
+    await assertSucceeds(setDoc(doc(staff('org1'), 'clubs/org1'), { name: 'Computing Society', bio: '' }))
+    await assertFails(setDoc(doc(staff('org1'), 'clubs/org2'), { name: 'Not mine' }))
+    await assertFails(setDoc(doc(anon('v1'), 'clubs/v1'), { name: 'Fake club' }))
+    await assertSucceeds(getDoc(doc(anon('v1'), 'clubs/org1')))
+  })
+})

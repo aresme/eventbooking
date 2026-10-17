@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Menu, Ticket, X } from 'lucide-react'
+import { LogOut, Menu, Ticket, X } from 'lucide-react'
+import { signOutVisitor, useAuth } from '@/hooks/useAuth'
 import { FacebookIcon, InstagramIcon, XIcon } from './social-icons'
 import { cn } from '@/lib/utils'
 import { useSubscription } from '@/hooks/useSubscription'
@@ -15,6 +16,8 @@ export function SiteLayout() {
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
   const { data: settings } = useSubscription(subscribeSettings, [], { initial: DEFAULT_SETTINGS })
+  const { user } = useAuth()
+  const googleUser = user?.isGoogle ? user : null
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -37,6 +40,7 @@ export function SiteLayout() {
             <Button to="/my-tickets" variant={pathname === '/my-tickets' ? 'default' : 'soft'} size="md" className="hidden sm:inline-flex">
               <Ticket /> My tickets
             </Button>
+            {googleUser && <AccountMenu user={googleUser} />}
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Menu">
               {open ? <X /> : <Menu />}
             </Button>
@@ -47,6 +51,11 @@ export function SiteLayout() {
             <Link to="/" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">Browse events</Link>
             <Link to="/my-tickets" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">My tickets</Link>
             <a href="/#how-it-works" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">How it works</a>
+            {googleUser && (
+              <button onClick={signOutVisitor} className="rounded-lg px-3 py-2.5 text-left font-semibold text-muted-foreground hover:bg-muted">
+                Sign out ({googleUser.email})
+              </button>
+            )}
           </nav>
         )}
       </header>
@@ -56,6 +65,30 @@ export function SiteLayout() {
       </main>
 
       <SiteFooter socials={settings.socials} />
+    </div>
+  )
+}
+
+function AccountMenu({ user }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative hidden md:block">
+      <button onClick={() => setOpen((o) => !o)} className="ml-1 grid size-9 place-items-center overflow-hidden rounded-full bg-muted text-sm font-bold uppercase ring-2 ring-transparent hover:ring-border" aria-label="Account" aria-expanded={open}>
+        {user.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" className="size-full object-cover" /> : (user.displayName || user.email || '?')[0]}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="animate-fade-up absolute right-0 z-20 mt-2 w-60 overflow-hidden rounded-xl border bg-card p-1 shadow-xl">
+            <div className="px-3 py-2">
+              <p className="truncate text-sm font-semibold">{user.displayName}</p>
+              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            </div>
+            <Link to="/my-tickets" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted"><Ticket className="size-4" /> My tickets</Link>
+            <button onClick={() => { setOpen(false); signOutVisitor() }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-muted"><LogOut className="size-4" /> Sign out</button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

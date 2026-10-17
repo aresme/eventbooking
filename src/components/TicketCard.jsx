@@ -57,7 +57,7 @@ export function TicketCard({ booking, event }) {
             <Item label="Name" value={booking.fullName} />
             <Item label="Ticket" value={booking.tierName} />
             {booking.regNumber && <Item label="Reg. no." value={booking.regNumber} />}
-            <Item label="Price" value={formatPrice(booking.unitPrice)} />
+            <Item label="Price" value={booking.discount ? `${formatPrice(booking.unitPrice - booking.discount / booking.quantity)} (${booking.promoCode})` : formatPrice(booking.unitPrice)} />
           </dl>
         </div>
 
