@@ -40,7 +40,7 @@ if sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
 sys.path.insert(0, os.path.dirname(__file__))
-from univibe_firebase import get_db, fetch_collection
+from univibe_firebase import get_db, fetch_collection, fetch_tickets
 
 # ── Style config ─────────────────────────────────────────────────────────────
 ACCENT      = "#FF4D6D"
@@ -80,7 +80,7 @@ def banner():
 
 def fmt_date(iso_str):
     try:
-        return datetime.fromisoformat(iso_str[:19])
+        return datetime.fromisoformat(iso_str[:19]) if iso_str else None
     except Exception:
         return None
 
@@ -90,7 +90,7 @@ def run(show=True):
     db = get_db()
 
     print("  ⏳  Fetching data from Firestore …")
-    bookings = fetch_collection(db, "bookings")
+    bookings = fetch_tickets(db)
     events   = fetch_collection(db, "events")
     print(f"  ✓  {len(bookings)} bookings  |  {len(events)} events\n")
 

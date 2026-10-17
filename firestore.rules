@@ -1,29 +1,281 @@
 rules_version = '2';
 
+// Data model (see ROADMAP.md):
+//   users/{uid}                          role: 'admin' | 'organizer' | 'pending'
+//   events/{eventId}                     tiers: { [tierId]: { name, price, totalSlots, bookedSlots, order } }
+//                                        txn: id of the booking that last changed bookedSlots
+//   events/{eventId}/holders/{uid}       count: tickets this visitor holds for the event
+//   events/{eventId}/promos/{CODE}       type: 'percent' | 'fixed' | 'free', value, maxUses, uses, active, tierIds
+//   clubs/{uid}                          public organizer profile (name, bio, links)
+//   bookings/{bookingId}                 one order: `quantity` tickets of one tier
+//   waitlists/{eventId_tierId_uid}
+//   settings/public                      socials, cloudinary (public read, admin write)
+//   activityLogs/{logId}
+//
+// Public visitors are signed in anonymously. A booking is one transaction that writes the
+// booking, the event's tier counter and the holder doc together; each rule checks the others
+// with getAfter() so a counter can never be changed on its own.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Events: Anyone can read/update (to increment slots), only admin can create/delete
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isAnon() { return request.auth.token.firebase.sign_in_provider == 'anonymous'; }
+    function userPath() { return /databases/$(database)/documents/users/$(uid()); }
+    function role() {
+      return signedIn() && !isAnon() && exists(userPath()) ? get(userPath()).data.role : '';
+    }
+    function isAdmin() { return role() == 'admin'; }
+    function isOrganizer() { return role() == 'organizer'; }
+    function isStaff() { return isAdmin() || isOrganizer(); }
+    function owns(data) { return isAdmin() || (isOrganizer() && data.ownerId == uid()); }
+
+    function eventPath(id) { return /databases/$(database)/documents/events/$(id); }
+    function bookingPath(id) { return /databases/$(database)/documents/bookings/$(id); }
+    function holderPath(eventId, u) { return /databases/$(database)/documents/events/$(eventId)/holders/$(u); }
+    function promoPath(eventId, code) { return /databases/$(database)/documents/events/$(eventId)/promos/$(code); }
+
+    // ---------- users ----------
+    match /users/{userId} {
+      allow get: if signedIn() && (userId == uid() || isAdmin());
+      allow list: if isAdmin();
+      // Organizer self sign-up starts as 'pending'; only an admin can grant a role.
+      allow create: if signedIn() && !isAnon() && userId == uid()
+        && request.resource.data.role == 'pending'
+        && request.resource.data.keys().hasOnly(['role', 'email', 'displayName', 'org', 'createdAt']);
+      allow update: if isAdmin()
+        || (userId == uid() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'org']));
+      allow delete: if isAdmin();
+    }
+
+    // ---------- settings ----------
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- events ----------
     match /events/{eventId} {
-      allow read, update: if true;
-      allow create, delete: if request.auth != null;
+      allow read: if resource.data.status == 'published' || owns(resource.data);
+
+      allow create: if isStaff() && validEvent(request.resource.data)
+        && (isAdmin() || (request.resource.data.ownerId == uid()
+                          && request.resource.data.status == 'pending'
+                          && request.resource.data.featured == false));
+
+      allow update: if staffEventUpdate() || bookingCounterUpdate() || cancelCounterUpdate();
+
+      allow delete: if owns(resource.data);
+
+      function validEvent(d) {
+        return d.title is string && d.title.size() > 0
+          && d.status in ['pending', 'published', 'hidden']
+          && d.type in ['school', 'normal']
+          && d.tiers is map && d.tiers.size() > 0
+          && d.ownerId is string
+          && d.featured is bool
+          && d.maxTickets is int && d.maxTickets >= 1 && d.maxTickets <= 20;
+      }
+
+      // Organizers can't publish, feature or hand an event to someone else.
+      function staffEventUpdate() {
+        let d = request.resource.data;
+        return owns(resource.data) && validEvent(d)
+          && (isAdmin() || (d.ownerId == resource.data.ownerId
+                            && d.featured == resource.data.featured
+                            && (d.status == resource.data.status || d.status in ['pending', 'hidden'])));
+      }
+
+      // Public booking: one tier's bookedSlots goes up by exactly the new booking's quantity.
+      function bookingCounterUpdate() {
+        let d = request.resource.data;
+        let booking = getAfter(bookingPath(d.txn)).data;
+        let t = booking.tierId;
+        return signedIn()
+          && resource.data.status == 'published'
+          && !exists(bookingPath(d.txn))
+          && booking.eventId == eventId
+          && d.diff(resource.data).affectedKeys().hasOnly(['tiers', 'txn'])
+          && d.tiers.diff(resource.data.tiers).affectedKeys().hasOnly([t])
+          && d.tiers[t].diff(resource.data.tiers[t]).affectedKeys().hasOnly(['bookedSlots'])
+          && d.tiers[t].bookedSlots == resource.data.tiers[t].bookedSlots + booking.quantity
+          && d.tiers[t].bookedSlots <= d.tiers[t].totalSlots;
+      }
+
+      // Self-cancel: bookedSlots goes down by the quantity of the booking being cancelled.
+      function cancelCounterUpdate() {
+        let d = request.resource.data;
+        let before = get(bookingPath(d.txn)).data;
+        let after = getAfter(bookingPath(d.txn)).data;
+        let t = before.tierId;
+        return signedIn()
+          && before.eventId == eventId
+          && before.userId == uid()
+          && before.status == 'confirmed' && after.status == 'cancelled'
+          && d.diff(resource.data).affectedKeys().hasOnly(['tiers', 'txn'])
+          && d.tiers.diff(resource.data.tiers).affectedKeys().hasOnly([t])
+          && d.tiers[t].diff(resource.data.tiers[t]).affectedKeys().hasOnly(['bookedSlots'])
+          && d.tiers[t].bookedSlots == resource.data.tiers[t].bookedSlots - before.quantity;
+      }
+
+      // How many tickets a visitor holds for this event (enforces the per-person limit).
+      match /holders/{holderId} {
+        allow read: if signedIn() && (holderId == uid() || owns(get(eventPath(eventId)).data));
+        allow create, update: if (signedIn() && holderId == uid() && holderChange())
+          || owns(get(eventPath(eventId)).data);
+        allow delete: if owns(get(eventPath(eventId)).data);
+
+        function holderChange() {
+          let d = request.resource.data;
+          let isNew = !exists(bookingPath(d.txn));
+          let after = getAfter(bookingPath(d.txn)).data;
+          let oldCount = resource == null ? 0 : resource.data.count;
+          let ev = getAfter(eventPath(eventId)).data;
+          let limit = ev.allowMultiple ? ev.maxTickets : 1;
+          return after.userId == uid() && after.eventId == eventId
+            && d.keys().hasOnly(['count', 'txn'])
+            && (
+              (isNew && d.count == oldCount + after.quantity && d.count <= limit)
+              || (!isNew && get(bookingPath(d.txn)).data.status == 'confirmed'
+                  && after.status == 'cancelled'
+                  && d.count == oldCount - after.quantity)
+            );
+        }
+      }
+
+      // Promo codes. Anyone who knows a code can read it; only the organizer can list them.
+      match /promos/{code} {
+        allow get: if true;
+        allow list: if owns(get(eventPath(eventId)).data);
+        allow create: if owns(get(eventPath(eventId)).data) && validPromo(request.resource.data);
+        allow delete: if owns(get(eventPath(eventId)).data);
+        allow update: if (owns(get(eventPath(eventId)).data) && validPromo(request.resource.data)) || promoUse();
+
+        function validPromo(d) {
+          return d.type in ['percent', 'fixed', 'free']
+            && d.value is int && d.value >= 0 && (d.type != 'percent' || d.value <= 100)
+            && d.maxUses is int && d.maxUses >= 1
+            && d.uses is int && d.active is bool && d.tierIds is list;
+        }
+
+        // A booking uses the code: `uses` goes up by exactly the booking's quantity.
+        function promoUse() {
+          let d = request.resource.data;
+          let booking = getAfter(bookingPath(d.txn)).data;
+          return signedIn()
+            && !exists(bookingPath(d.txn))
+            && booking.eventId == eventId && booking.promoCode == code
+            && d.diff(resource.data).affectedKeys().hasOnly(['uses', 'txn'])
+            && d.uses == resource.data.uses + booking.quantity
+            && d.uses <= resource.data.maxUses
+            && resource.data.active == true;
+        }
+      }
     }
 
-    // Bookings: Anyone can read/create/update (self-cancel), only admin can delete
+    // ---------- clubs (public organizer profiles) ----------
+    match /clubs/{clubId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isOrganizer() && clubId == uid()
+        && request.resource.data.name is string && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80);
+    }
+
+    // ---------- bookings ----------
     match /bookings/{bookingId} {
-      allow read, create, update: if true;
-      allow delete: if request.auth != null;
+      // Anyone holding the (unguessable) booking id can open the ticket; listing is restricted.
+      allow get: if true;
+      allow list: if signedIn() && (resource.data.userId == uid() || owns(resource.data));
+
+      allow create: if publicBookingCreate() || staffBookingCreate();
+
+      // The visitor can cancel their own booking; staff can check in, cancel or edit.
+      allow update: if selfCancel() || owns(resource.data);
+      allow delete: if owns(resource.data);
+
+      function validBookingShape(d) {
+        return d.keys().hasOnly(['eventId', 'tierId', 'userId', 'ownerId', 'fullName', 'phone', 'email',
+                                 'regNumber', 'school', 'quantity', 'tickets', 'ticketCodes', 'status',
+                                 'bookedAt', 'source', 'eventTitle', 'tierName', 'unitPrice', 'promoCode', 'discount'])
+          && d.fullName is string && d.fullName.size() >= 3 && d.fullName.size() <= 80
+          && d.phone is string && d.phone.matches('^0[17][0-9]{8}$')
+          && d.quantity is int && d.quantity >= 1 && d.quantity <= 20
+          && d.tickets is list && d.tickets.size() == d.quantity
+          && d.ticketCodes is list && d.ticketCodes.size() == d.quantity
+          && d.status == 'confirmed';
+      }
+
+      function publicBookingCreate() {
+        let d = request.resource.data;
+        let ev = getAfter(eventPath(d.eventId)).data;
+        return signedIn() && d.userId == uid() && d.source == 'web'
+          && validBookingShape(d)
+          && d.bookedAt == request.time
+          && ev.txn == bookingId
+          && ev.ownerId == d.ownerId
+          && d.unitPrice == ev.tiers[d.tierId].price
+          && getAfter(holderPath(d.eventId, uid())).data.txn == bookingId
+          && promoOk(d);
+      }
+
+      // No code → no discount. With a code → the promo was used in this same write and the
+      // discount matches what the code gives for this tier and quantity.
+      function promoOk(d) {
+        return d.get('promoCode', '') == ''
+          ? d.get('discount', 0) == 0
+          : promoDiscountOk(d, get(promoPath(d.eventId, d.promoCode)).data);
+      }
+
+      function promoDiscountOk(d, p) {
+        let gross = d.unitPrice * d.quantity;
+        return getAfter(promoPath(d.eventId, d.promoCode)).data.txn == bookingId
+          && p.active == true
+          && (p.tierIds.size() == 0 || d.tierId in p.tierIds)
+          && d.discount == (p.type == 'free' ? gross
+                           : p.type == 'percent' ? math.floor(gross * p.value / 100)
+                           : math.min(gross, p.value * d.quantity));
+      }
+
+      function staffBookingCreate() {
+        let d = request.resource.data;
+        let ev = getAfter(eventPath(d.eventId)).data;
+        return owns(ev) && d.ownerId == ev.ownerId && validBookingShape(d);
+      }
+
+      function selfCancel() {
+        let d = request.resource.data;
+        return signedIn() && resource.data.userId == uid()
+          && resource.data.status == 'confirmed' && d.status == 'cancelled'
+          && d.diff(resource.data).affectedKeys().hasOnly(['status'])
+          && getAfter(eventPath(resource.data.eventId)).data.txn == bookingId
+          && getAfter(holderPath(resource.data.eventId, uid())).data.txn == bookingId;
+      }
     }
 
-    // Waitlists: Anyone can read/create, only admin can update/delete
+    // ---------- waitlists ----------
+    // Doc id is `${eventId}_${tierId}_${uid}` so a visitor can only join each tier once.
     match /waitlists/{waitlistId} {
-      allow read, create: if true;
-      allow update, delete: if request.auth != null;
+      allow get: if signedIn() && (resource == null || resource.data.userId == uid() || owns(resource.data));
+      allow list: if signedIn() && (resource.data.userId == uid() || owns(resource.data));
+      allow create: if signedIn()
+        && waitlistId == request.resource.data.eventId + '_' + request.resource.data.tierId + '_' + uid()
+        && request.resource.data.userId == uid()
+        && request.resource.data.ownerId == get(eventPath(request.resource.data.eventId)).data.ownerId
+        && request.resource.data.fullName is string && request.resource.data.fullName.size() >= 3
+        && request.resource.data.phone.matches('^0[17][0-9]{8}$')
+        && request.resource.data.joinedAt == request.time;
+      allow update: if owns(resource.data);
+      allow delete: if owns(resource.data) || (signedIn() && resource.data.userId == uid());
     }
 
-    // Activity Logs: Only admin can read/write
+    // ---------- activity logs ----------
     match /activityLogs/{logId} {
-      allow read, write: if request.auth != null;
+      allow read: if owns(resource.data);
+      allow create: if isStaff() && request.resource.data.actorId == uid()
+        && (isAdmin() || request.resource.data.ownerId == uid());
+      allow delete: if isAdmin();
     }
   }
 }

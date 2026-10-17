@@ -31,6 +31,19 @@ def get_db():
     if _app is not None:
         return firestore.client()
 
+    # Local emulators (FIRESTORE_EMULATOR_HOST=127.0.0.1:8080): no key needed.
+    if os.environ.get("FIRESTORE_EMULATOR_HOST"):
+        project = os.environ.get("GCLOUD_PROJECT", "demo-univibe")
+        from google.auth.credentials import AnonymousCredentials
+
+        class _EmulatorCredential(credentials.Base):
+            def get_credential(self):
+                return AnonymousCredentials()
+
+        _app = firebase_admin.initialize_app(_EmulatorCredential(), options={"projectId": project})
+        print(f"  ✓  Connected to Firestore emulator ({project})\n")
+        return firestore.client()
+
     if not os.path.exists(_SA_KEY_PATH):
         print("\n" + "═" * 60)
         print("  ⚠  SERVICE ACCOUNT KEY NOT FOUND")
@@ -63,3 +76,39 @@ def fetch_collection(db, name):
     """Fetch all documents from a Firestore collection as a list of dicts."""
     docs = db.collection(name).stream()
     return [{"id": doc.id, **doc.to_dict()} for doc in docs]
+
+
+def _iso(value):
+    """Firestore timestamps → ISO string (older data already stored ISO strings)."""
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def fetch_tickets(db):
+    """
+    One dict per ticket, in the shape the analytics tools expect:
+    ticketCode, fullName, phone, eventId, tierId, bookedAt (ISO), cancelled, checkedIn.
+
+    v2 bookings are orders holding several tickets; v1 (legacy) bookings were one ticket each.
+    """
+    rows = []
+    for b in fetch_collection(db, "bookings"):
+        base = {
+            "bookingId": b["id"],
+            "eventId": b.get("eventId", ""),
+            "tierId": b.get("tierId", ""),
+            "fullName": b.get("fullName", ""),
+            "phone": b.get("phone", ""),
+            "bookedAt": _iso(b.get("bookedAt")),
+            "cancelled": b.get("status") == "cancelled" or bool(b.get("cancelled")),
+        }
+        tickets = b.get("tickets")
+        if tickets:
+            for t in tickets:
+                rows.append({**base, "ticketCode": t.get("code", ""), "checkedIn": bool(t.get("checkedIn"))})
+        else:
+            rows.append({**base, "ticketCode": b.get("ticketCode", ""), "checkedIn": bool(b.get("checkedIn"))})
+    return rows

@@ -28,7 +28,7 @@ if sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
 sys.path.insert(0, os.path.dirname(__file__))
-from univibe_firebase import get_db, fetch_collection
+from univibe_firebase import get_db, fetch_collection, fetch_tickets
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ def run(export_csv=False):
     db = get_db()
 
     print("  ⏳  Fetching data from Firestore …")
-    bookings = fetch_collection(db, "bookings")
+    bookings = fetch_tickets(db)
     events   = fetch_collection(db, "events")
     print(f"  ✓  {len(bookings)} bookings  |  {len(events)} events\n")
 

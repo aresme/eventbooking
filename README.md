@@ -1,185 +1,140 @@
-
-<h1 align="center">⚡ UniVibe — Campus Event Booking</h1>
+<h1 align="center">⚡ UniVibe · Campus Event Booking</h1>
 
 <p align="center">
-  <strong>Discover, book, and attend the best university events — instantly.</strong><br>
-  A full-stack Firebase web app with QR tickets, admin panel, waitlists, and analytics tools.
+  <strong>Discover, book and attend university events. QR tickets on your phone.</strong><br>
+  React + Firebase web app with organizer accounts, waitlists, door check-in and email tickets.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Firebase-10.7.1-orange?logo=firebase" alt="Firebase">
-  <img src="https://img.shields.io/badge/PWA-Enabled-blue?logo=googlechrome" alt="PWA">
-  <img src="https://img.shields.io/badge/Gemini_AI-Powered-purple?logo=google" alt="Gemini AI">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React">
+  <img src="https://img.shields.io/badge/Firebase-Spark_plan-orange?logo=firebase" alt="Firebase">
+  <img src="https://img.shields.io/badge/PWA-installable-blue" alt="PWA">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License">
 </p>
 
 ---
 
-## ✨ Features
+## Features
 
-### 👤 User-Facing
-| Feature | Description |
-|---|---|
-| 🔍 **Browse Events** | Filter events by category, date, or search by keyword |
-| 🎟️ **Instant Booking** | Book tickets with name + phone — no account required |
-| 📱 **Digital Ticket + QR** | Auto-generated QR code ticket, shareable & downloadable |
-| ⏳ **Waitlist** | Join a waitlist when an event is sold out — auto-notified when a spot opens |
-| 🌙 **Dark / Light Mode** | Smooth theme toggle saved to localStorage |
-| 📲 **PWA (Installable)** | Install as a native-like app on Android, iOS, and desktop |
-| 🧠 **AI Event Description** | Gemini AI auto-generates professional event descriptions |
-| 🔗 **Deep Links** | Direct shareable URLs to any event (`#event-ID`) |
+**Attendees** (no account needed)
+- Browse and search events; filter by this week, trending, school, open or free
+- Pick a ticket type and quantity, then book in two steps
+- QR ticket with its own link: save it as an image, share on WhatsApp, add to Google, Outlook or Apple Calendar
+- **My tickets**: every booking made on this device; cancel your own booking before the event
+- Waitlist for sold-out ticket types
+- Optional email confirmation (EmailJS)
+- Dark mode, installable as an app (PWA), works on bad connections
 
-### 🛠️ Admin Panel (`admin.html`)
-| Feature | Description |
-|---|---|
-| 📊 **Live Dashboard** | Real-time stats: total events, bookings today, revenue, active waitlists |
-| ➕ **Create / Edit Events** | Rich event form: title, date, venue, capacity, price, cover image (Cloudinary/Unsplash) |
-| 📋 **Booking Management** | View all bookings per event, search by name or phone |
-| ✅ **QR Ticket Scanner** | Camera-based QR scanner to validate tickets at the door |
-| 🗑️ **Bulk Delete** | Select and delete multiple events at once |
-| 📤 **Export Bookings** | Download booking list as CSV for any event |
-| 📝 **Activity Log** | Audit trail of admin actions |
-| 🌐 **Social Links** | Configure Facebook, Instagram, Twitter links |
+**Organizers & admins** (separate admin page: `/admin`, built from `admin.html`)
+- **Roles:** clubs apply as organizers and an admin approves them. Organizers see and manage only their own events.
+- Events need admin approval before going public; admins can feature events on the home page
+- Event editor with multiple ticket types, per-person limits, Cloudinary upload, Unsplash search and an AI-written description
+- Bookings table with search, filters and CSV export
+- Waitlist: give freed seats to the person who waited longest (they're emailed their ticket)
+- **Check-in** with the phone camera or by typing a code, plus a live "inside" counter
+- Overview charts, activity log, promo QR codes for posters
 
-### 🐍 Python Analytics Tools (`tools/`)
-| Tool | Description |
-|---|---|
-| `duplicate_detector.py` | Finds phone numbers that booked the same event more than once (fraud detection) |
-| `attendance_heatmap.py` | Generates 4 charts: bookings per event, by day, by hour, and daily trend |
+**Security**
+- Visitors sign in anonymously, so bookings belong to a device and nobody can read other people's bookings
+- Bookings are transactions; [`firestore.rules`](firestore.rules) check capacity, price and per-person limits on the server, so there's no overbooking and no tampering from the browser console
+- 34 automated tests cover the rules and the booking flow ([`tests/`](tests))
 
 ---
 
-## 🚀 Getting Started
+## Quick start (local, no Firebase project needed)
 
-### Prerequisites
-- A [Firebase](https://firebase.google.com) project with **Firestore** enabled
-- A web server (or just open `index.html` directly in a browser for local dev)
+Requires **Node.js 22+** and **Java 11+** (for the Firebase emulators).
 
-### 1. Clone the repo
 ```bash
-git clone https://github.com/aresme/eventbooking.git
-cd eventbooking
+npm install
+npm run emulators          # terminal 1: local Auth + Firestore (UI at http://localhost:4000)
+npm run seed               # terminal 2: demo events, bookings and accounts
+npm run dev:emulator       # terminal 2: app at http://localhost:5173
 ```
 
-### 2. Configure your secrets
-```bash
-cp firebase-config.example.js firebase-config.js
-```
-Open `firebase-config.js` and fill in your Firebase project credentials:
-```js
-window.APP_CONFIG = {
-  firebase: {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    // ... etc
-  },
-  unsplashAccessKey: "YOUR_UNSPLASH_KEY",  // optional — for cover image search
-  geminiApiKey: "YOUR_GEMINI_KEY"           // optional — for AI descriptions
-};
-```
-> ⚠️ `firebase-config.js` is gitignored — **never commit it**.
+Demo logins for `/admin`: `admin@univibe.test` and `organizer@univibe.test`, both with password `password123`.
 
-### 3. Set up Firestore Security Rules
-Deploy the included rules to protect your database:
-```bash
-firebase deploy --only firestore:rules
-```
+## Connecting to your Firebase project
 
-### 4. Open the app
-Simply open `index.html` in a browser, or deploy to Firebase Hosting:
-```bash
-firebase deploy --only hosting
-```
+1. Firebase Console:
+   - **Authentication → Sign-in method**: enable **Anonymous** and **Email/Password**.
+   - **Project settings → Your apps**: copy the web app config.
+2. `cp .env.example .env` and fill in the `VITE_FIREBASE_*` values.
+3. Deploy the rules and indexes: `npx firebase deploy --only firestore`
+4. Make yourself the first admin: create your account in **Authentication → Users**, then:
+   ```bash
+   cd tools && pip install -r requirements.txt   # needs serviceAccountKey.json, see tools/README.md
+   python set_role.py you@example.com admin
+   ```
+5. `npm run dev` to run against the real project.
 
----
+### Upgrading from v1 (the old HTML/JS app)
 
-## 📁 Project Structure
-
-```
-eventbooking/
-├── index.html                  # Main user-facing app
-├── admin.html                  # Admin dashboard
-├── app.js                      # All app logic (~3000 lines)
-├── style.css                   # Global styles
-├── sw.js                       # Service worker (PWA)
-├── manifest.json               # PWA manifest
-├── firebase.json               # Firebase Hosting config
-├── firestore.rules             # Firestore security rules
-├── firebase-config.example.js  # ✅ Committed — safe template
-├── firebase-config.js          # ❌ Gitignored — your real secrets
-├── screenshots/                # App screenshots for README
-└── tools/                      # Python analytics scripts
-    ├── duplicate_detector.py
-    ├── attendance_heatmap.py
-    ├── univibe_firebase.py      # Shared Firestore connection
-    ├── requirements.txt
-    └── README.md               # Tools-specific documentation
-```
-
----
-
-## 🐍 Python Analytics Tools Setup
+v2 stores ticket types and bookings differently. Back up Firestore, then run:
 
 ```bash
 cd tools
-pip install -r requirements.txt
+python migrate_v2.py --admin-email you@example.com            # dry run
+python migrate_v2.py --admin-email you@example.com --apply    # convert the data
 ```
 
-Then download your Firebase Service Account Key:
-1. Go to [Firebase Console → Project Settings → Service Accounts](https://console.firebase.google.com)
-2. Click **"Generate new private key"**
-3. Save as `tools/serviceAccountKey.json`
+Old tickets keep working through their ticket links and at the door scanner.
 
-> ⚠️ `serviceAccountKey.json` is gitignored — **never commit it**.
+## Deploy
 
-### Run the tools
 ```bash
-# Detect duplicate bookings (fraud detection)
-python duplicate_detector.py
-
-# Generate attendance analytics charts
-python attendance_heatmap.py
+npm run build
+npx firebase deploy --only hosting,firestore
 ```
 
-See [`tools/README.md`](tools/README.md) for full documentation.
+## Optional integrations (`.env`)
 
----
-
-## 🔧 Tech Stack
-
-| Layer | Technology |
+| Variable | What it enables |
 |---|---|
-| **Frontend** | Vanilla HTML, CSS, JavaScript |
-| **Styling** | TailwindCSS (CDN) + custom CSS variables |
-| **Database** | Firebase Firestore (real-time) |
-| **Hosting** | Firebase Hosting |
-| **Image Upload** | Cloudinary |
-| **Image Search** | Unsplash API |
-| **AI** | Google Gemini API (event descriptions) |
-| **QR Scanning** | `html5-qrcode` library |
-| **PDF Tickets** | `html2canvas` |
-| **Analytics** | Firebase Analytics |
-| **PWA** | Service Worker + Web App Manifest |
-| **Python Tools** | `firebase-admin`, `pandas`, `matplotlib` |
+| `VITE_EMAILJS_*` | Ticket emails and "you got a seat" emails. [EmailJS](https://www.emailjs.com) free plan: 200 emails/month. Template variables: `to_name`, `event_title`, `event_date`, `event_time`, `event_venue`, `tier_name`, `quantity`, `total`, `ticket_codes`, `ticket_url` |
+| `VITE_UNSPLASH_ACCESS_KEY` | Cover image search in the event editor |
+| `VITE_GEMINI_API_KEY` | "Write with AI" event descriptions. **Restrict the key to your domain** in Google Cloud. |
+
+Cloudinary upload and social links are set by an admin in **Dashboard → Settings**.
 
 ---
 
-## 🔐 Security
+## Project structure
 
-- **Firestore Rules** enforce that only authenticated admins can write events; reads are public.
-- **XSS Protection** — all user-supplied strings are escaped through a dedicated `esc()` helper before rendering.
-- **Secrets** are loaded at runtime from a gitignored `firebase-config.js` file — no secrets in source code.
-- **Push Protection** — GitHub's secret scanning is respected; no API keys are committed.
+```
+├── index.html              # public site
+├── admin.html              # admin page (/admin)
+├── src/
+│   ├── App.jsx             # routes
+│   ├── lib/                # firebase init, formatting, calendar helpers
+│   ├── services/           # all Firestore access: events, bookings, waitlist, users, settings, email
+│   ├── hooks/              # useAuth (anonymous + staff roles), useSubscription, useTheme
+│   ├── components/         # EventCard, TicketCard, SiteLayout, ui/ (buttons, dialogs, forms)
+│   └── pages/
+│       ├── public/         # Home, EventDetail, Ticket, MyTickets, Terms/Privacy
+│       └── public/…
+│   └── admin/              # separate admin page (admin.html): AdminApp + pages/
+├── firestore.rules         # the security model, see comments inside
+├── firestore.indexes.json
+├── tests/                  # rules + service tests (npm run test:rules)
+├── scripts/seed-emulator.mjs
+└── tools/                  # Python admin tools: migration, roles, duplicates, charts, cancellation
+```
 
----
+## Scripts
 
-## 🌐 Live Demo
+| Command | |
+|---|---|
+| `npm run dev` | Dev server against the Firebase project in `.env` |
+| `npm run dev:emulator` | Dev server against local emulators |
+| `npm run emulators` / `npm run seed` | Start emulators / load demo data |
+| `npm run test:rules` | Run the 34 rules and booking tests in the emulator |
+| `npm run build` / `npm run preview` | Production build / preview it |
 
-> 🔗 **[univibe-events-9c77f.web.app](https://univibe-events-9c77f.web.app)**
+## Tech stack
 
----
+React 19 · React Router 7 · Vite 8 · Tailwind CSS 4 · Firebase 13 (Auth, Firestore) · Recharts · html5-qrcode · qrcode.react · EmailJS · vite-plugin-pwa
 
-## 📄 License
+## License
 
 MIT © [aresme](https://github.com/aresme)
