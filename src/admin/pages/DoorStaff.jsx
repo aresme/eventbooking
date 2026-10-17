@@ -52,7 +52,7 @@ export default function DoorStaff() {
     toast.success(active ? 'Access restored' : 'Access removed')
   }
 
-  const credentials = created && `UniVibe door login\n${window.location.origin}/admin\nEmail: ${created.email}\nPassword: ${created.password}`
+  const credentials = created && `UniVibe door login\n${window.location.origin}/organizer\nEmail: ${created.email}\nPassword: ${created.password}`
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_380px]">

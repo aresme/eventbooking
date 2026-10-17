@@ -2,15 +2,15 @@ import { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 
 /**
- * The admin area is a separate page (admin.html). If the public app is ever rendered at an
- * /admin URL, a stale service worker from an older version served it from cache. Remove the
+ * The admin and organizer areas are separate pages. If the public app is ever rendered at an
+ * /admin or /organizer URL, a stale service worker from an older version served it from cache. Remove the
  * old worker and caches, then load the real admin page from the network.
  */
 export default function AdminRedirect() {
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
-    const target = window.location.pathname.replace(/^\/dashboard/, '/admin') + window.location.search
+    const target = window.location.pathname.replace(/^\/dashboard/, '/organizer') + window.location.search
     const key = 'uv_admin_redirect'
     let tried = false
     try {
@@ -39,9 +39,9 @@ export default function AdminRedirect() {
     <div className="grid min-h-[60dvh] place-items-center px-4 text-center">
       {failed ? (
         <div>
-          <p className="font-bold">Couldn’t open the admin page.</p>
+          <p className="font-bold">Couldn’t open that page.</p>
           <p className="mt-1 text-sm text-muted-foreground">Clear this site’s data in your browser settings, then try again.</p>
-          <a href="/admin" className="mt-4 inline-block font-semibold text-primary hover:underline">Try again</a>
+          <a href={window.location.pathname} className="mt-4 inline-block font-semibold text-primary hover:underline">Try again</a>
         </div>
       ) : (
         <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Opening admin page" />

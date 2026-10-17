@@ -36,6 +36,7 @@ const router = createBrowserRouter([
           { path: '/privacy', element: <Privacy /> },
           { path: '/admin/*', element: <AdminRedirect /> },
           { path: '/dashboard/*', element: <AdminRedirect /> },
+          { path: '/organizer/*', element: <AdminRedirect /> },
           { path: '*', element: <NotFound /> },
         ],
       },

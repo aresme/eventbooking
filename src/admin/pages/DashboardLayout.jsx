@@ -28,29 +28,31 @@ import { subscribeMessages } from '@/services/messages'
 import { cn } from '@/lib/utils'
 import { Logo, ThemeToggle } from '@/components/brand'
 import { Button } from '@/components/ui/button'
-import Login, { PendingApproval } from './Login'
+import Login, { PendingApproval, WrongPortal } from './Login'
+import { usePortal } from '../portal'
 
 const DataContext = createContext(null)
 export const useDashboard = () => useContext(DataContext)
 
 const NAV = [
-  { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/admin/events', label: 'Events', icon: CalendarDays },
-  { to: '/admin/events/new', label: 'New event', icon: PlusCircle },
-  { to: '/admin/bookings', label: 'Bookings', icon: Ticket },
-  { to: '/admin/waitlist', label: 'Waitlist', icon: Hourglass, badge: 'waitlist' },
-  { to: '/admin/scanner', label: 'Check-in', icon: ScanLine },
-  { to: '/admin/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
-  { to: '/admin/door-staff', label: 'Door staff', icon: ShieldCheck },
-  { to: '/admin/inbox', label: 'Inbox', icon: InboxIcon, adminOnly: true, badge: 'inbox' },
-  { to: '/admin/activity', label: 'Activity', icon: Activity },
-  { to: '/admin/settings', label: 'Settings', icon: Settings },
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/events', label: 'Events', icon: CalendarDays },
+  { to: '/events/new', label: 'New event', icon: PlusCircle },
+  { to: '/bookings', label: 'Bookings', icon: Ticket },
+  { to: '/waitlist', label: 'Waitlist', icon: Hourglass, badge: 'waitlist' },
+  { to: '/scanner', label: 'Check-in', icon: ScanLine },
+  { to: '/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
+  { to: '/door-staff', label: 'Door staff', icon: ShieldCheck },
+  { to: '/inbox', label: 'Inbox', icon: InboxIcon, adminOnly: true, badge: 'inbox' },
+  { to: '/activity', label: 'Activity', icon: Activity },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
-const DOOR_PAGES = ['/admin/scanner', '/admin/settings']
+const DOOR_PAGES = ['/scanner', '/settings']
 
 export default function DashboardLayout() {
-  const { loading, user, role, isStaff, isDoor } = useAuth()
+  const { loading, user, role } = useAuth()
+  const portal = usePortal()
 
   if (loading) {
     return (
@@ -60,8 +62,10 @@ export default function DashboardLayout() {
     )
   }
   if (!user || user.isAnonymous) return <Login />
-  if (!isStaff && !isDoor) return <PendingApproval role={role} />
-  return <StaffShell />
+  if (portal.roles.includes(role)) return <StaffShell />
+  // Signed in, but this portal isn't theirs: admins belong on /admin, organizers and door staff on /organizer.
+  if (role === 'admin' || role === 'organizer' || role === 'door') return <WrongPortal role={role} />
+  return <PendingApproval role={role} />
 }
 
 function StaffShell() {
@@ -95,13 +99,13 @@ function StaffShell() {
   const sidebar = (
     <nav className="flex h-full flex-col gap-1 p-3" aria-label="Dashboard">
       <div className="mb-4 flex items-center justify-between px-2 pt-1">
-        <Logo to="/admin" suffix={isAdmin ? 'Admin' : isDoor ? 'Door' : 'Organizer'} />
+        <Logo to="/" suffix={isAdmin ? 'Admin' : isDoor ? 'Door' : 'Organizer'} />
       </div>
       {NAV.filter((n) => (isDoor ? DOOR_PAGES.includes(n.to) : !n.adminOnly || isAdmin)).map(({ to, label, icon: Icon, end, badge }) => (
         <NavLink
           key={to}
           to={to}
-          end={end ?? to === '/admin/events'}
+          end={end ?? to === '/events'}
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
             cn(
@@ -158,7 +162,7 @@ function StaffShell() {
                 Couldn’t load dashboard data: {data.error.message}. If you just set up the project, deploy the Firestore rules and indexes.
               </div>
             ) : isDoor && !DOOR_PAGES.includes(pathname) ? (
-              <Navigate to="/admin/scanner" replace />
+              <Navigate to="/scanner" replace />
             ) : (
               <Outlet />
             )}

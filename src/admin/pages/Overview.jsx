@@ -57,7 +57,7 @@ export default function Overview() {
         icon={CalendarDays}
         title={`Welcome, ${user.profile?.displayName || 'organizer'}!`}
         description="Create your first event and start taking bookings."
-        action={<Button to="/admin/events/new"><PlusCircle /> Create event</Button>}
+        action={<Button to="/events/new"><PlusCircle /> Create event</Button>}
       />
     )
   }
@@ -65,7 +65,7 @@ export default function Overview() {
   return (
     <div className="space-y-6">
       {isAdmin && pending.length > 0 && (
-        <Link to="/admin/events?status=pending" className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning-soft p-4 text-sm">
+        <Link to="/events?status=pending" className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning-soft p-4 text-sm">
           <AlertCircle className="size-5 shrink-0 text-warning" />
           <span>
             <span className="font-bold">{pending.length} event{pending.length > 1 ? 's' : ''} waiting for approval.</span> Review them before they go public.
@@ -107,7 +107,7 @@ export default function Overview() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Upcoming events" action={<Button to="/admin/events" variant="ghost" size="sm">View all</Button>} />
+          <CardHeader title="Upcoming events" action={<Button to="/events" variant="ghost" size="sm">View all</Button>} />
           <ul className="divide-y">
             {upcoming.length === 0 && <li className="px-5 py-8 text-center text-sm text-muted-foreground">No upcoming events</li>}
             {upcoming.map((e) => {
@@ -115,7 +115,7 @@ export default function Overview() {
               return (
                 <li key={e.id} className="px-5 py-3">
                   <div className="flex items-center justify-between gap-3">
-                    <Link to={`/admin/events/${e.id}/edit`} className="truncate text-sm font-semibold hover:text-primary">{e.title}</Link>
+                    <Link to={`/events/${e.id}/edit`} className="truncate text-sm font-semibold hover:text-primary">{e.title}</Link>
                     <span className="shrink-0 text-xs text-muted-foreground">{formatDate(e.date, { day: 'numeric', month: 'short' })}</span>
                   </div>
                   <div className="mt-2 flex items-center gap-3">
@@ -129,7 +129,7 @@ export default function Overview() {
         </Card>
 
         <Card>
-          <CardHeader title="Recent bookings" action={<Button to="/admin/bookings" variant="ghost" size="sm">View all</Button>} />
+          <CardHeader title="Recent bookings" action={<Button to="/bookings" variant="ghost" size="sm">View all</Button>} />
           <ul className="divide-y">
             {bookings.length === 0 && <li className="px-5 py-8 text-center text-sm text-muted-foreground">No bookings yet</li>}
             {bookings.slice(0, 6).map((b) => (

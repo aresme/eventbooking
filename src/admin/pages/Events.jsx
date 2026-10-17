@@ -92,7 +92,7 @@ export default function Events() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="pl-9" aria-label="Search events" />
           </div>
-          <Button to="/admin/events/new">
+          <Button to="/events/new">
             <PlusCircle /> <span className="hidden sm:inline">New event</span>
           </Button>
         </div>
@@ -138,7 +138,7 @@ function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr, onPromo
       <EventImage event={event} w={200} h={140} className="hidden h-16 w-24 shrink-0 rounded-lg object-cover sm:block" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <Button to={`/admin/events/${event.id}/edit`} variant="link" className="truncate font-bold text-foreground">
+          <Button to={`/events/${event.id}/edit`} variant="link" className="truncate font-bold text-foreground">
             {event.title}
           </Button>
           {event.featured && <Star className="size-4 fill-accent text-accent" aria-label="Featured" />}
@@ -168,12 +168,12 @@ function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr, onPromo
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
               <div className="animate-fade-up absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border bg-card p-1 shadow-xl" onClick={() => setMenu(false)}>
-                <MenuItem icon={Pencil} to={`/admin/events/${event.id}/edit`}>Edit</MenuItem>
+                <MenuItem icon={Pencil} to={`/events/${event.id}/edit`}>Edit</MenuItem>
                 {event.status === 'published' && <MenuItem icon={Eye} href={`/events/${event.id}`}>View public page</MenuItem>}
                 <MenuItem icon={Megaphone} onClick={onUpdates}>Post update</MenuItem>
                 <MenuItem icon={Tag} onClick={onPromos}>Promo codes</MenuItem>
                 <MenuItem icon={QrCode} onClick={onQr}>Poster QR code</MenuItem>
-                <MenuItem icon={CopyPlus} to={`/admin/events/new?from=${event.id}`}>Duplicate</MenuItem>
+                <MenuItem icon={CopyPlus} to={`/events/new?from=${event.id}`}>Duplicate</MenuItem>
                 {isAdmin && <MenuItem icon={Star} onClick={onFeature}>{event.featured ? 'Unfeature' : 'Feature on home'}</MenuItem>}
                 {event.status === 'published' && <MenuItem icon={EyeOff} onClick={() => onStatus('hidden')}>Hide from public</MenuItem>}
                 {event.status === 'hidden' && (isAdmin
