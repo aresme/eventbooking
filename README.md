@@ -91,7 +91,7 @@ npx firebase deploy --only hosting,firestore
 
 | Variable | What it enables |
 |---|---|
-| `VITE_EMAILJS_*` | Ticket emails and "you got a seat" emails. [EmailJS](https://www.emailjs.com) free plan: 200 emails/month. Template variables: `to_name`, `event_title`, `event_date`, `event_time`, `event_venue`, `tier_name`, `quantity`, `total`, `ticket_codes`, `ticket_url` |
+| `VITE_EMAILJS_*` | Ticket, waitlist and update emails. [EmailJS](https://www.emailjs.com) free plan: 200 emails/month. Two templates: **BOOKING** (variables `to_name`, `event_title`, `event_date`, `event_time`, `event_venue`, `tier_name`, `quantity`, `total`, `ticket_codes`, `ticket_url`) and **NOTICE** (`subject`, `heading`, `message`, `to_name`, `event_*`, `ticket_url`). Both: To Email `{{to_email}}` |
 | `VITE_UNSPLASH_ACCESS_KEY` | Cover image search in the event editor |
 | `VITE_GEMINI_API_KEY` | "Write with AI" event descriptions. **Restrict the key to your domain** in Google Cloud. |
 

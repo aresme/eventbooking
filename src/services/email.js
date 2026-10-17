@@ -3,15 +3,16 @@ import { formatDate, formatPrice, formatTime } from '@/lib/utils'
 
 const env = import.meta.env
 
-export const emailEnabled = Boolean(env.VITE_EMAILJS_PUBLIC_KEY && env.VITE_EMAILJS_SERVICE_ID)
+// Two EmailJS templates (see README):
+//   BOOKING: ticket confirmation, with event fields like {{event_title}} and {{ticket_url}}
+//   NOTICE:  waitlist seats and organizer updates, with {{subject}}, {{heading}}, {{message}}
+const ready = Boolean(env.VITE_EMAILJS_PUBLIC_KEY && env.VITE_EMAILJS_SERVICE_ID)
+export const emailEnabled = ready && Boolean(env.VITE_EMAILJS_TEMPLATE_BOOKING)
+export const updateEmailsEnabled = ready && Boolean(env.VITE_EMAILJS_TEMPLATE_NOTICE)
 
-/**
- * Send an email through EmailJS. The template decides the subject and layout; the params below
- * are available in it as {{to_name}}, {{event_title}}, {{ticket_url}}, etc.
- * Failures are logged and swallowed so a booking never fails because of email.
- */
+/** Send one email. Failures are logged and swallowed so a booking never fails because of email. */
 async function send(templateId, params) {
-  if (!emailEnabled || !templateId || !params.to_email) return false
+  if (!ready || !templateId || !params.to_email) return false
   try {
     await emailjs.send(env.VITE_EMAILJS_SERVICE_ID, templateId, params, { publicKey: env.VITE_EMAILJS_PUBLIC_KEY })
     return true
@@ -30,10 +31,12 @@ function eventParams(event) {
   }
 }
 
+const firstName = (n) => (n || '').split(' ')[0]
+
 export function sendBookingConfirmation({ bookingId, booking, event }) {
   return send(env.VITE_EMAILJS_TEMPLATE_BOOKING, {
     to_email: booking.email,
-    to_name: booking.fullName,
+    to_name: firstName(booking.fullName),
     ...eventParams(event),
     tier_name: booking.tierName,
     quantity: booking.quantity,
@@ -44,16 +47,16 @@ export function sendBookingConfirmation({ bookingId, booking, event }) {
 }
 
 export function sendWaitlistPromotion({ bookingId, entry, event }) {
-  return send(env.VITE_EMAILJS_TEMPLATE_WAITLIST, {
+  return send(env.VITE_EMAILJS_TEMPLATE_NOTICE, {
     to_email: entry.email,
-    to_name: entry.fullName,
+    to_name: firstName(entry.fullName),
     ...eventParams(event),
-    tier_name: entry.tierName,
+    subject: `A seat opened up: ${event.title}`,
+    heading: 'Good news, you got a seat! 🎉',
+    message: `You've been given a ${entry.tierName} ticket for ${event.title}. Open your ticket below and show the QR code at the entrance.`,
     ticket_url: `${window.location.origin}/tickets/${bookingId}`,
   })
 }
-
-export const updateEmailsEnabled = emailEnabled && Boolean(env.VITE_EMAILJS_TEMPLATE_UPDATE)
 
 /**
  * Email an organizer update to every confirmed attendee who gave an email (one email per address).
@@ -63,10 +66,12 @@ export async function sendUpdateToAttendees({ event, message, bookings }) {
   const recipients = [...new Map(bookings.filter((b) => b.status === 'confirmed' && b.email).map((b) => [b.email, b])).values()]
   let sent = 0
   for (const b of recipients) {
-    const ok = await send(env.VITE_EMAILJS_TEMPLATE_UPDATE, {
+    const ok = await send(env.VITE_EMAILJS_TEMPLATE_NOTICE, {
       to_email: b.email,
-      to_name: b.fullName,
+      to_name: firstName(b.fullName),
       ...eventParams(event),
+      subject: `Update: ${event.title}`,
+      heading: 'An update from the organizer 📣',
       message,
       ticket_url: `${window.location.origin}/tickets/${b.id}`,
     })
