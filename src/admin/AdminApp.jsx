@@ -13,6 +13,7 @@ const Waitlist = lazy(() => import('./pages/Waitlist'))
 const Scanner = lazy(() => import('./pages/Scanner'))
 const Organizers = lazy(() => import('./pages/Organizers'))
 const DoorStaff = lazy(() => import('./pages/DoorStaff'))
+const Inbox = lazy(() => import('./pages/Inbox'))
 const Activity = lazy(() => import('./pages/Activity'))
 const Settings = lazy(() => import('./pages/Settings'))
 
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
       { path: 'scanner', element: page(<Scanner />) },
       { path: 'organizers', element: page(<Organizers />) },
       { path: 'door-staff', element: page(<DoorStaff />) },
+      { path: 'inbox', element: page(<Inbox />) },
       { path: 'activity', element: page(<Activity />) },
       { path: 'settings', element: page(<Settings />) },
       { path: '*', element: <Navigate to="/admin" replace /> },

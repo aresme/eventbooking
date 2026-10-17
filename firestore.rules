@@ -4,6 +4,7 @@ rules_version = '2';
 //   users/{uid}                          role: 'admin' | 'organizer' | 'pending' | 'door' (door: ownerId = organizer)
 //   people/{uid}                         visitor's saved events and followed clubs
 //   events/{eventId}/updates/{id}        organizer announcements shown on the event and tickets
+//   messages/{id}                        contact form submissions (admin inbox)
 //   events/{eventId}                     tiers: { [tierId]: { name, price, totalSlots, bookedSlots, order } }
 //                                        txn: id of the booking that last changed bookedSlots
 //   events/{eventId}/holders/{uid}       count: tickets this visitor holds for the event
@@ -68,6 +69,19 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['saved', 'following', 'updatedAt'])
         && request.resource.data.get('saved', []).size() <= 200
         && request.resource.data.get('following', []).size() <= 200;
+    }
+
+    // ---------- contact messages (admin inbox) ----------
+    match /messages/{messageId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'contact', 'topic', 'message', 'eventId', 'userId', 'status', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
+        && request.resource.data.contact is string && request.resource.data.contact.size() >= 5 && request.resource.data.contact.size() <= 120
+        && request.resource.data.message is string && request.resource.data.message.size() >= 5 && request.resource.data.message.size() <= 2000
+        && request.resource.data.userId == uid()
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
     }
 
     // ---------- settings ----------

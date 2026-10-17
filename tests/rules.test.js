@@ -392,3 +392,16 @@ describe('event updates', () => {
     await assertSucceeds(getDocs(collection(anon('v1'), 'events/e1/updates')))
   })
 })
+
+describe('contact messages', () => {
+  const m = (uid, over = {}) => ({ name: 'Jane', contact: 'jane@example.com', topic: 'booking', message: 'I lost my ticket link', eventId: '', userId: uid, status: 'open', createdAt: serverTimestamp(), ...over })
+  it('visitors send messages; only admins read them', async () => {
+    await assertSucceeds(addDoc(collection(anon('v1'), 'messages'), m('v1')))
+    await assertFails(addDoc(collection(anon('v1'), 'messages'), m('v2')))
+    await assertFails(addDoc(collection(anon('v1'), 'messages'), m('v1', { status: 'resolved' })))
+    await assertFails(addDoc(collection(anon('v1'), 'messages'), m('v1', { message: 'x' })))
+    await assertFails(getDocs(collection(anon('v1'), 'messages')))
+    await assertFails(getDocs(collection(staff('org1'), 'messages')))
+    await assertSucceeds(getDocs(collection(staff('admin1'), 'messages')))
+  })
+})

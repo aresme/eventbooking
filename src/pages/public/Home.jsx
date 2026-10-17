@@ -32,6 +32,18 @@ export default function Home() {
   const upcoming = useMemo(() => events.filter((e) => !isEnded(e)), [events])
   const { following } = usePeople()
   const fromFollowed = useMemo(() => upcoming.filter((e) => following.includes(e.ownerId)).sort(byDate).slice(0, 6), [upcoming, following])
+  const thisWeekend = useMemo(() => upcoming.filter(isThisWeekend).sort(byDate).slice(0, 8), [upcoming])
+  const sellingFast = useMemo(
+    () =>
+      upcoming
+        .filter((e) => {
+          const st = eventStats(e)
+          return !st.soldOut && st.total > 0 && (st.pct >= 60 || st.left <= 20)
+        })
+        .sort((a, b) => eventStats(b).pct - eventStats(a).pct)
+        .slice(0, 8),
+    [upcoming],
+  )
   const featured = useMemo(() => upcoming.filter((e) => e.featured).sort(byDate).slice(0, 1)[0], [upcoming])
 
   const filtered = useMemo(() => {
@@ -101,18 +113,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- from clubs you follow ---------- */}
-      {fromFollowed.length > 0 && !q && (
-        <section className="container-page pt-12">
-          <h2 className="mb-5 text-xl font-extrabold tracking-tight">From clubs you follow</h2>
-          <div className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-            {fromFollowed.map((e) => (
-              <div key={e.id} className="w-72 shrink-0 snap-start">
-                <EventCard event={e} />
-              </div>
-            ))}
-          </div>
-        </section>
+      {/* ---------- curated rows (hidden while searching or filtering) ---------- */}
+      {!q && filter === 'all' && category === 'all' && (
+        <>
+          <EventRail title="From clubs you follow" events={fromFollowed} />
+          <EventRail title="This weekend" icon={CalendarDays} events={thisWeekend} />
+          <EventRail title="Selling fast" icon={Flame} events={sellingFast} />
+        </>
       )}
 
       {/* ---------- event list ---------- */}
@@ -237,6 +244,38 @@ function CategoryChips({ events, value, onChange }) {
       ))}
     </div>
   )
+}
+
+function EventRail({ title, icon: Icon, events }) {
+  if (events.length === 0) return null
+  return (
+    <section className="container-page pt-12">
+      <h2 className="mb-5 flex items-center gap-2 text-xl font-extrabold tracking-tight">
+        {Icon && <Icon className="size-5 text-primary" />} {title}
+      </h2>
+      <div className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+        {events.map((e) => (
+          <div key={e.id} className="w-72 shrink-0 snap-start">
+            <EventCard event={e} />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** Friday–Sunday of the current week (or the coming one, Mon–Thu). */
+function isThisWeekend(e) {
+  const now = new Date()
+  const day = now.getDay() // 0 Sun … 6 Sat
+  const friday = new Date(now)
+  friday.setHours(0, 0, 0, 0)
+  friday.setDate(now.getDate() + (day === 0 ? -2 : 5 - day))
+  const sundayEnd = new Date(friday)
+  sundayEnd.setDate(friday.getDate() + 2)
+  sundayEnd.setHours(23, 59, 59)
+  const d = new Date(`${e.date}T${e.time || '00:00'}`)
+  return d >= now && d >= friday && d <= sundayEnd
 }
 
 function byDate(a, b) {

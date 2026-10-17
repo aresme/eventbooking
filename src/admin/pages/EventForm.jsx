@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, ImageUp, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
+import { ArrowLeft, HelpCircle, ImageUp, ListOrdered, X, Plus, Search, Sparkles, Trash2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { saveEvent } from '@/services/events'
@@ -25,6 +25,8 @@ const EMPTY = {
   image: '',
   allowMultiple: false,
   maxTickets: 5,
+  schedule: [],
+  faqs: [],
 }
 
 const newTier = (name = 'General', price = 0, totalSlots = 100) => ({ id: shortId(), name, price, totalSlots, bookedSlots: 0 })
@@ -179,6 +181,8 @@ export default function EventForm() {
             </div>
           </Card>
 
+          <ScheduleFaqCard values={values} setValues={setValues} />
+
           <Card>
             <CardHeader
               title="Tickets"
@@ -234,6 +238,65 @@ export default function EventForm() {
         </div>
       </div>
     </form>
+  )
+}
+
+const FAQ_SUGGESTIONS = [
+  { q: 'Is there a dress code?', a: '' },
+  { q: 'Can I get a refund?', a: '' },
+  { q: 'Do I need my student ID?', a: '' },
+  { q: 'Is there parking?', a: '' },
+]
+
+function ScheduleFaqCard({ values, setValues }) {
+  const schedule = values.schedule || []
+  const faqs = values.faqs || []
+  const setList = (key, list) => setValues((v) => ({ ...v, [key]: list }))
+  const update = (key, i, field, val) => setList(key, (values[key] || []).map((x, j) => (j === i ? { ...x, [field]: val } : x)))
+  const remove = (key, i) => setList(key, (values[key] || []).filter((_, j) => j !== i))
+
+  return (
+    <Card>
+      <CardHeader title="Schedule & FAQ" description="Optional. Shown on the event page; events with these details convert better." />
+      <div className="space-y-6 p-5">
+        <div className="space-y-2">
+          <p className="flex items-center gap-2 text-sm font-semibold"><ListOrdered className="size-4" /> Schedule</p>
+          {schedule.map((item, i) => (
+            <div key={i} className="flex gap-2">
+              <Input type="time" value={item.time} onChange={(e) => update('schedule', i, 'time', e.target.value)} className="w-32 shrink-0" aria-label="Time" />
+              <Input value={item.title} onChange={(e) => update('schedule', i, 'title', e.target.value)} placeholder="e.g. Doors open, Keynote, DJ set" aria-label="What happens" />
+              <Button type="button" variant="ghost" size="icon" onClick={() => remove('schedule', i)} aria-label="Remove item"><X /></Button>
+            </div>
+          ))}
+          <Button type="button" variant="soft" size="sm" onClick={() => setList('schedule', [...schedule, { time: '', title: '' }])}>
+            <Plus /> Add schedule item
+          </Button>
+        </div>
+
+        <div className="space-y-2 border-t pt-5">
+          <p className="flex items-center gap-2 text-sm font-semibold"><HelpCircle className="size-4" /> Frequently asked questions</p>
+          {faqs.map((f, i) => (
+            <div key={i} className="space-y-2 rounded-xl border p-3">
+              <div className="flex gap-2">
+                <Input value={f.q} onChange={(e) => update('faqs', i, 'q', e.target.value)} placeholder="Question" aria-label="Question" />
+                <Button type="button" variant="ghost" size="icon" onClick={() => remove('faqs', i)} aria-label="Remove question"><X /></Button>
+              </div>
+              <Textarea rows={2} value={f.a} onChange={(e) => update('faqs', i, 'a', e.target.value)} placeholder="Answer" aria-label="Answer" className="min-h-0" />
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-1.5">
+            <Button type="button" variant="soft" size="sm" onClick={() => setList('faqs', [...faqs, { q: '', a: '' }])}>
+              <Plus /> Add question
+            </Button>
+            {FAQ_SUGGESTIONS.filter((x) => !faqs.some((f) => f.q === x.q)).map((x) => (
+              <button key={x.q} type="button" onClick={() => setList('faqs', [...faqs, { ...x }])} className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">
+                + {x.q}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Card>
   )
 }
 

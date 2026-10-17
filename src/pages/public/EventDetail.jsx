@@ -158,6 +158,8 @@ export default function EventDetail() {
           <h2 className="mt-10 text-lg font-bold">About this event</h2>
           <div className="mt-3 space-y-4 leading-relaxed whitespace-pre-line text-muted-foreground">{event.description || 'No description yet.'}</div>
 
+          <EventExtras event={event} />
+
           <div className="mt-10 rounded-xl border bg-card p-5">
             <div className="flex items-center justify-between text-sm">
               <span className="flex items-center gap-2 font-semibold">
@@ -233,6 +235,64 @@ export default function EventDetail() {
         </>
       )}
     </div>
+  )
+}
+
+function EventExtras({ event }) {
+  const mapQuery = event.mapQuery || event.venue
+  return (
+    <>
+      {event.schedule?.length > 0 && (
+        <>
+          <h2 className="mt-10 text-lg font-bold">Schedule</h2>
+          <ol className="relative mt-4 space-y-4 border-l-2 border-border pl-6">
+            {event.schedule.map((item, i) => (
+              <li key={i} className="relative">
+                <span className="absolute top-1.5 -left-[31px] size-3 rounded-full border-2 border-background bg-primary" />
+                {item.time && <p className="text-xs font-bold text-primary">{formatTime(item.time)}</p>}
+                <p className="font-semibold">{item.title}</p>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+
+      {mapQuery && (
+        <>
+          <h2 className="mt-10 text-lg font-bold">Location</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{event.venue}</p>
+          <div className="mt-3 overflow-hidden rounded-xl border bg-muted">
+            <iframe
+              title={`Map of ${event.venue}`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`}
+              className="aspect-[16/9] w-full sm:aspect-[21/9]"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+          <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapQuery)}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+            <MapPin className="size-4" /> Get directions
+          </a>
+        </>
+      )}
+
+      {event.faqs?.length > 0 && (
+        <>
+          <h2 className="mt-10 text-lg font-bold">FAQ</h2>
+          <div className="mt-3 divide-y rounded-xl border bg-card">
+            {event.faqs.map((f, i) => (
+              <details key={i} className="group px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">
+                  {f.q}
+                  <Plus className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-45" />
+                </summary>
+                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </>
+      )}
+    </>
   )
 }
 

@@ -70,6 +70,8 @@ export async function saveEvent({ id, values, tiers, existing, user }) {
     venue: values.venue.trim(),
     mapQuery: values.mapQuery?.trim() || '',
     image: values.image || '',
+    schedule: (values.schedule || []).filter((s) => s.title.trim()).map((s) => ({ time: s.time || '', title: s.title.trim() })),
+    faqs: (values.faqs || []).filter((f) => f.q.trim() && f.a.trim()).map((f) => ({ q: f.q.trim(), a: f.a.trim() })),
     allowMultiple: Boolean(values.allowMultiple),
     maxTickets: values.allowMultiple ? Math.min(20, Math.max(1, Number(values.maxTickets) || 5)) : 1,
     tiers: tierMap,

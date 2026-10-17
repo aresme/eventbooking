@@ -6,7 +6,7 @@ import { useSubscription } from '@/hooks/useSubscription'
 import { DEFAULT_SETTINGS, saveSettings, subscribeSettings } from '@/services/settings'
 import { changePassword } from '@/services/users'
 import { saveClub, subscribeClub } from '@/services/clubs'
-import { emailEnabled } from '@/services/email'
+import { emailEnabled, updateEmailsEnabled } from '@/services/email'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/form'
 import { Card, CardHeader } from '@/components/ui/misc'
@@ -97,7 +97,7 @@ function SiteSettings() {
     e.preventDefault()
     setSaving(true)
     try {
-      await saveSettings({ socials: form.socials, cloudinary: form.cloudinary })
+      await saveSettings({ socials: form.socials, cloudinary: form.cloudinary, contactEmail: form.contactEmail.trim(), contactWhatsapp: form.contactWhatsapp.trim() })
       toast.success('Settings saved')
     } catch {
       toast.error('Could not save settings')
@@ -117,6 +117,12 @@ function SiteSettings() {
               {(p) => <Input {...p} type="url" value={form.socials[k]} onChange={set('socials', k)} placeholder={`https://${k === 'twitter' ? 'x' : k}.com/…`} />}
             </Field>
           ))}
+        </fieldset>
+        <fieldset className="space-y-3">
+          <legend className="mb-2 text-sm font-bold">Contact details</legend>
+          <p className="text-xs text-muted-foreground">Shown on the Contact page. Messages from its form arrive in your Inbox.</p>
+          <Field label="Email" optional>{(p) => <Input {...p} type="email" value={form.contactEmail || ''} onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))} />}</Field>
+          <Field label="WhatsApp number" optional>{(p) => <Input {...p} type="tel" value={form.contactWhatsapp || ''} onChange={(e) => setForm((f) => ({ ...f, contactWhatsapp: e.target.value }))} placeholder="0712 345 678" />}</Field>
         </fieldset>
         <fieldset className="space-y-3">
           <legend className="mb-1 text-sm font-bold">Cloudinary image uploads</legend>
@@ -170,7 +176,8 @@ function PasswordCard() {
 function IntegrationStatus() {
   const env = import.meta.env
   const items = [
-    ['Email notifications (EmailJS)', emailEnabled],
+    ['Ticket emails (EmailJS)', emailEnabled],
+    ['Update emails to attendees', updateEmailsEnabled],
     ['Unsplash image search', Boolean(env.VITE_UNSPLASH_ACCESS_KEY)],
     ['AI descriptions (Gemini)', Boolean(env.VITE_GEMINI_API_KEY)],
   ]

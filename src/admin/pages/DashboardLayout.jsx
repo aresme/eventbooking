@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ExternalLink,
   Hourglass,
+  Inbox as InboxIcon,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -23,6 +24,7 @@ import { subscribeManagedEvents } from '@/services/events'
 import { subscribeManagedBookings } from '@/services/bookings'
 import { subscribeManagedWaitlist } from '@/services/waitlist'
 import { staffSignOut } from '@/services/users'
+import { subscribeMessages } from '@/services/messages'
 import { cn } from '@/lib/utils'
 import { Logo, ThemeToggle } from '@/components/brand'
 import { Button } from '@/components/ui/button'
@@ -40,6 +42,7 @@ const NAV = [
   { to: '/admin/scanner', label: 'Check-in', icon: ScanLine },
   { to: '/admin/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
   { to: '/admin/door-staff', label: 'Door staff', icon: ShieldCheck },
+  { to: '/admin/inbox', label: 'Inbox', icon: InboxIcon, adminOnly: true, badge: 'inbox' },
   { to: '/admin/activity', label: 'Activity', icon: Activity },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ]
@@ -85,7 +88,8 @@ function StaffShell() {
     }
   }, [events, bookings, waitlist]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const badges = { waitlist: data.waitlist.length }
+  const messages = useSubscription(subscribeMessages, [], { initial: [], enabled: isAdmin })
+  const badges = { waitlist: data.waitlist.length, inbox: (messages.data || []).filter((m) => m.status === 'open').length }
   const current = NAV.filter((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to))).sort((a, b) => b.to.length - a.to.length)[0]
 
   const sidebar = (
