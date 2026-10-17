@@ -12,13 +12,13 @@ import { Field, Input, Textarea } from '@/components/ui/form'
 import { Card, CardHeader } from '@/components/ui/misc'
 
 export default function Settings() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isDoor } = useAuth()
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <ClubProfile />
+      {!isDoor && <ClubProfile />}
       {isAdmin && <SiteSettings />}
       <PasswordCard />
-      <IntegrationStatus />
+      {!isDoor && <IntegrationStatus />}
     </div>
   )
 }

@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing'
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore'
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where, writeBatch } from 'firebase/firestore'
 
 let env
 
@@ -328,5 +328,67 @@ describe('clubs', () => {
     await assertFails(setDoc(doc(staff('org1'), 'clubs/org2'), { name: 'Not mine' }))
     await assertFails(setDoc(doc(anon('v1'), 'clubs/v1'), { name: 'Fake club' }))
     await assertSucceeds(getDoc(doc(anon('v1'), 'clubs/org1')))
+  })
+})
+
+describe('door staff', () => {
+  beforeEach(async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'users/door1'), { role: 'door', ownerId: 'org1', email: 'd@x.com', displayName: 'Gate 1' })
+      await setDoc(doc(db, 'users/door2'), { role: 'door', ownerId: 'org2', email: 'e@x.com', displayName: 'Gate 2' })
+      await setDoc(doc(db, 'users/oldDoor'), { role: 'revoked', ownerId: 'org1', email: 'f@x.com', displayName: 'Old' })
+    })
+    await bookBatch(anon('v1'), 'v1')
+  })
+  const checkIn = (db) => updateDoc(doc(db, 'bookings/b1'), { tickets: [{ code: 'UV-b10', checkedIn: true }] })
+
+  it('organizers create door accounts for themselves only', async () => {
+    await assertSucceeds(setDoc(doc(staff('org1'), 'users/newDoor'), { role: 'door', ownerId: 'org1', email: 'n@x.com', displayName: 'Gate', createdAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(staff('org1'), 'users/newDoor2'), { role: 'door', ownerId: 'org2', email: 'n@x.com', displayName: 'Gate', createdAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(staff('org1'), 'users/newAdmin'), { role: 'admin', ownerId: 'org1', email: 'n@x.com', displayName: 'Gate', createdAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(staff('door1'), 'users/newDoor3'), { role: 'door', ownerId: 'door1', email: 'n@x.com', displayName: 'Gate', createdAt: serverTimestamp() }))
+  })
+
+  it('organizers list and revoke only their own door staff', async () => {
+    await assertSucceeds(getDocs(query(collection(staff('org1'), 'users'), where('ownerId', '==', 'org1'))))
+    await assertFails(getDocs(query(collection(staff('org1'), 'users'), where('ownerId', '==', 'org2'))))
+    await assertSucceeds(updateDoc(doc(staff('org1'), 'users/door1'), { role: 'revoked' }))
+    await assertFails(updateDoc(doc(staff('org1'), 'users/door2'), { role: 'revoked' }))
+    await assertFails(updateDoc(doc(staff('org1'), 'users/door1'), { role: 'admin' }))
+  })
+
+  it('door staff check in tickets of their organizer only', async () => {
+    await assertSucceeds(getDocs(query(collection(staff('door1'), 'bookings'), where('ownerId', '==', 'org1'))))
+    await assertSucceeds(checkIn(staff('door1')))
+    await assertFails(checkIn(staff('door2')))
+    await assertFails(checkIn(staff('oldDoor')))
+  })
+
+  it('door staff cannot cancel, edit or see other data', async () => {
+    await assertFails(updateDoc(doc(staff('door1'), 'bookings/b1'), { status: 'cancelled' }))
+    await assertFails(updateDoc(doc(staff('door1'), 'events/e1'), { title: 'x' }))
+    await assertFails(getDocs(query(collection(staff('door1'), 'waitlists'), where('ownerId', '==', 'org1'))))
+    await assertFails(setDoc(doc(staff('door1'), 'events/x'), baseEvent({ ownerId: 'door1', status: 'pending' })))
+  })
+})
+
+describe('people (saved & following)', () => {
+  it('each visitor reads and writes only their own lists', async () => {
+    await assertSucceeds(setDoc(doc(anon('v1'), 'people/v1'), { saved: ['e1'], following: ['org1'] }))
+    await assertSucceeds(getDoc(doc(anon('v1'), 'people/v1')))
+    await assertFails(getDoc(doc(anon('v2'), 'people/v1')))
+    await assertFails(setDoc(doc(anon('v2'), 'people/v1'), { saved: [] }))
+    await assertFails(setDoc(doc(anon('v1'), 'people/v1'), { saved: [], role: 'admin' }))
+  })
+})
+
+describe('event updates', () => {
+  const msg = (m = 'Venue moved to Hall B') => ({ message: m, createdAt: serverTimestamp(), authorName: 'Org' })
+  it('organizers post, everyone reads', async () => {
+    await assertSucceeds(addDoc(collection(staff('org1'), 'events/e1/updates'), msg()))
+    await assertFails(addDoc(collection(staff('org2'), 'events/e1/updates'), msg()))
+    await assertFails(addDoc(collection(anon('v1'), 'events/e1/updates'), msg()))
+    await assertFails(addDoc(collection(staff('org1'), 'events/e1/updates'), msg('')))
+    await assertSucceeds(getDocs(collection(anon('v1'), 'events/e1/updates')))
   })
 })

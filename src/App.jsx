@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router-dom'
 import { AppShell } from '@/components/AppShell'
+import { PeopleProvider } from '@/hooks/usePeople'
 import { SiteLayout } from '@/components/SiteLayout'
 import Home from '@/pages/public/Home'
 import EventDetail from '@/pages/public/EventDetail'
@@ -41,7 +42,9 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <AppShell>
-      <RouterProvider router={router} />
+      <PeopleProvider>
+        <RouterProvider router={router} />
+      </PeopleProvider>
     </AppShell>
   )
 }

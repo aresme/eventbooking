@@ -100,6 +100,7 @@ export function AuthProvider({ children }) {
         : null,
       role,
       isStaff: role === 'admin' || role === 'organizer',
+      isDoor: role === 'door',
       isAdmin: role === 'admin',
     }
   }, [fbUser, profile, error, version]) // eslint-disable-line react-hooks/exhaustive-deps

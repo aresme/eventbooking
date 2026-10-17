@@ -1,5 +1,5 @@
 // Fill the local emulators with demo data. Run `npm run emulators` first, then `npm run seed`.
-// Creates admin@univibe.test / organizer@univibe.test (password: password123).
+// Creates admin@univibe.test / organizer@univibe.test / door@univibe.test (password: password123).
 import { readFileSync } from 'node:fs'
 import { initializeTestEnvironment } from '@firebase/rules-unit-testing'
 import { doc, setDoc, Timestamp } from 'firebase/firestore'
@@ -41,6 +41,7 @@ await env.clearFirestore()
 const adminId = await createUser('admin@univibe.test', 'Grace Admin')
 const orgId = await createUser('organizer@univibe.test', 'Brian Otieno')
 const pendingId = await createUser('newclub@univibe.test', 'Aisha Mohamed')
+const doorId = await createUser('door@univibe.test', 'Main gate')
 
 const events = [
   { id: 'freshers', category: 'music', title: 'Freshers’ Night 2026', type: 'normal', date: day(3), time: '19:00', venue: 'Main Grounds', featured: true, image: img('1514525253161-7a46d19cd819'), tiers: { reg: ['Regular', 300, 400, 287], vip: ['VIP', 1000, 50, 50] }, desc: 'Kick off the semester with the biggest party on campus. Live DJs, food trucks and a surprise headline act.\n\nBring your student ID.' },
@@ -59,6 +60,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'users', adminId), { role: 'admin', email: 'admin@univibe.test', displayName: 'Grace Admin', org: 'UniVibe' })
   await setDoc(doc(db, 'users', orgId), { role: 'organizer', email: 'organizer@univibe.test', displayName: 'Brian Otieno', org: 'Computing Society' })
+  await setDoc(doc(db, 'users', doorId), { role: 'door', email: 'door@univibe.test', displayName: 'Main gate', ownerId: orgId, createdAt: Timestamp.now() })
   await setDoc(doc(db, 'users', pendingId), { role: 'pending', email: 'newclub@univibe.test', displayName: 'Aisha Mohamed', org: 'Drama Club', createdAt: Timestamp.now() })
   await setDoc(doc(db, 'clubs', orgId), { name: 'Computing Society', bio: 'Hackathons, tech talks and coding nights for everyone curious about building things.\nWe meet every Thursday, 5pm, Lab 3.', logo: '', website: 'https://example.com', instagram: 'https://instagram.com/univibe' })
   await setDoc(doc(db, 'clubs', adminId), { name: 'UniVibe', bio: 'Official campus events team.', logo: '' })
@@ -89,6 +91,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     }
   }
 
+  await setDoc(doc(db, 'events/freshers/updates/u1'), { message: 'Gates open at 6:30 pm. Bring your student ID.', authorName: 'UniVibe', createdAt: Timestamp.now() })
   await setDoc(doc(db, 'events/freshers/promos/EARLY50'), { type: 'percent', value: 50, maxUses: 20, uses: 3, active: true, tierIds: ['reg'] })
   await setDoc(doc(db, 'waitlists', `freshers_vip_seed-w1`), {
     eventId: 'freshers', tierId: 'vip', userId: 'seed-w1', ownerId: adminId, eventTitle: events[0].title, tierName: 'VIP',
@@ -97,4 +100,4 @@ await env.withSecurityRulesDisabled(async (ctx) => {
 })
 
 await env.cleanup()
-console.log(`Seeded ${events.length} events.\n  admin@univibe.test / password123\n  organizer@univibe.test / password123`)
+console.log(`Seeded ${events.length} events.\n  admin@univibe.test / password123\n  organizer@univibe.test / password123\n  door@univibe.test / password123 (scanner only)`)

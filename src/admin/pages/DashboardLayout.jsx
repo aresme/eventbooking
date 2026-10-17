@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
   CalendarDays,
@@ -13,6 +13,7 @@ import {
   ScanLine,
   Settings,
   Ticket,
+  ShieldCheck,
   Users,
   X,
 } from 'lucide-react'
@@ -38,12 +39,15 @@ const NAV = [
   { to: '/admin/waitlist', label: 'Waitlist', icon: Hourglass, badge: 'waitlist' },
   { to: '/admin/scanner', label: 'Check-in', icon: ScanLine },
   { to: '/admin/organizers', label: 'Organizers', icon: Users, adminOnly: true, badge: 'pending' },
+  { to: '/admin/door-staff', label: 'Door staff', icon: ShieldCheck },
   { to: '/admin/activity', label: 'Activity', icon: Activity },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
+const DOOR_PAGES = ['/admin/scanner', '/admin/settings']
+
 export default function DashboardLayout() {
-  const { loading, user, role, isStaff } = useAuth()
+  const { loading, user, role, isStaff, isDoor } = useAuth()
 
   if (loading) {
     return (
@@ -53,19 +57,20 @@ export default function DashboardLayout() {
     )
   }
   if (!user || user.isAnonymous) return <Login />
-  if (!isStaff) return <PendingApproval role={role} />
+  if (!isStaff && !isDoor) return <PendingApproval role={role} />
   return <StaffShell />
 }
 
 function StaffShell() {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isDoor } = useAuth()
   const [open, setOpen] = useState(false)
   const { pathname } = useLocation()
-  const scope = { uid: user.uid, role: user.role }
+  // Door staff see their organizer's data; services treat any non-admin role as "owned by uid".
+  const scope = isDoor ? { uid: user.profile.ownerId, role: 'door' } : { uid: user.uid, role: user.role }
 
   const events = useSubscription((ok, err) => subscribeManagedEvents(scope, ok, err), [user.uid, user.role], { initial: [] })
   const bookings = useSubscription((ok, err) => subscribeManagedBookings(scope, ok, err), [user.uid, user.role], { initial: [] })
-  const waitlist = useSubscription((ok, err) => subscribeManagedWaitlist(scope, ok, err), [user.uid, user.role], { initial: [] })
+  const waitlist = useSubscription((ok, err) => subscribeManagedWaitlist(scope, ok, err), [user.uid, user.role], { initial: [], enabled: !isDoor })
 
   const data = useMemo(() => {
     const eventsById = Object.fromEntries((events.data || []).map((e) => [e.id, e]))
@@ -74,10 +79,11 @@ function StaffShell() {
       bookings: bookings.data || [],
       waitlist: waitlist.data || [],
       eventsById,
+      scope,
       loading: events.loading || bookings.loading || waitlist.loading,
       error: events.error || bookings.error || waitlist.error,
     }
-  }, [events, bookings, waitlist])
+  }, [events, bookings, waitlist]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const badges = { waitlist: data.waitlist.length }
   const current = NAV.filter((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to))).sort((a, b) => b.to.length - a.to.length)[0]
@@ -85,9 +91,9 @@ function StaffShell() {
   const sidebar = (
     <nav className="flex h-full flex-col gap-1 p-3" aria-label="Dashboard">
       <div className="mb-4 flex items-center justify-between px-2 pt-1">
-        <Logo to="/admin" suffix={isAdmin ? 'Admin' : 'Organizer'} />
+        <Logo to="/admin" suffix={isAdmin ? 'Admin' : isDoor ? 'Door' : 'Organizer'} />
       </div>
-      {NAV.filter((n) => !n.adminOnly || isAdmin).map(({ to, label, icon: Icon, end, badge }) => (
+      {NAV.filter((n) => (isDoor ? DOOR_PAGES.includes(n.to) : !n.adminOnly || isAdmin)).map(({ to, label, icon: Icon, end, badge }) => (
         <NavLink
           key={to}
           to={to}
@@ -147,6 +153,8 @@ function StaffShell() {
               <div className="rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
                 Couldn’t load dashboard data: {data.error.message}. If you just set up the project, deploy the Firestore rules and indexes.
               </div>
+            ) : isDoor && !DOOR_PAGES.includes(pathname) ? (
+              <Navigate to="/admin/scanner" replace />
             ) : (
               <Outlet />
             )}

@@ -5,6 +5,7 @@ import { useSubscription } from '@/hooks/useSubscription'
 import { subscribePublishedEvents } from '@/services/events'
 import { CATEGORIES, cn, eventStats, formatDate, formatTime, isEnded } from '@/lib/utils'
 import { EventCard, EventCardSkeleton } from '@/components/EventCard'
+import { usePeople } from '@/hooks/usePeople'
 import { Button } from '@/components/ui/button'
 import { Badge, EmptyState, Segmented } from '@/components/ui/misc'
 import { EventImage } from '@/components/EventImage'
@@ -29,6 +30,8 @@ export default function Home() {
   const [showPast, setShowPast] = useState(false)
 
   const upcoming = useMemo(() => events.filter((e) => !isEnded(e)), [events])
+  const { following } = usePeople()
+  const fromFollowed = useMemo(() => upcoming.filter((e) => following.includes(e.ownerId)).sort(byDate).slice(0, 6), [upcoming, following])
   const featured = useMemo(() => upcoming.filter((e) => e.featured).sort(byDate).slice(0, 1)[0], [upcoming])
 
   const filtered = useMemo(() => {
@@ -97,6 +100,20 @@ export default function Home() {
           {featured ? <FeaturedCard event={featured} /> : <HeroArt />}
         </div>
       </section>
+
+      {/* ---------- from clubs you follow ---------- */}
+      {fromFollowed.length > 0 && !q && (
+        <section className="container-page pt-12">
+          <h2 className="mb-5 text-xl font-extrabold tracking-tight">From clubs you follow</h2>
+          <div className="no-scrollbar -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+            {fromFollowed.map((e) => (
+              <div key={e.id} className="w-72 shrink-0 snap-start">
+                <EventCard event={e} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ---------- event list ---------- */}
       <section id="events" className="container-page scroll-mt-20 py-12">

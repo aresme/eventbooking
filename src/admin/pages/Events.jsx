@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { QRCodeCanvas } from 'qrcode.react'
-import { CalendarDays, Check, Copy, CopyPlus, Download, Eye, EyeOff, MoreHorizontal, Pencil, PlusCircle, QrCode, Search, Star, Tag, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, Copy, CopyPlus, Download, Eye, EyeOff, Megaphone, MoreHorizontal, Pencil, PlusCircle, QrCode, Search, Star, Tag, Trash2 } from 'lucide-react'
 import PromoDialog from './PromoDialog'
+import UpdatesDialog from './UpdatesDialog'
 import { useAuth } from '@/hooks/useAuth'
 import { deleteEvent, setEventFeatured, setEventStatus } from '@/services/events'
 import { cn, eventStats, formatDate, formatPrice, isEnded } from '@/lib/utils'
@@ -27,6 +28,7 @@ export default function Events() {
   const [q, setQ] = useState('')
   const [qrEvent, setQrEvent] = useState(null)
   const [promoEvent, setPromoEvent] = useState(null)
+  const [updatesEvent, setUpdatesEvent] = useState(null)
   const confirm = useConfirm()
   const tab = params.get('status') || 'upcoming'
 
@@ -112,6 +114,7 @@ export default function Events() {
               onDelete={() => remove(e)}
               onQr={() => setQrEvent(e)}
               onPromos={() => setPromoEvent(e)}
+              onUpdates={() => setUpdatesEvent(e)}
             />
           ))}
         </div>
@@ -119,11 +122,12 @@ export default function Events() {
 
       <PromoQrDialog event={qrEvent} onClose={() => setQrEvent(null)} />
       <PromoDialog event={promoEvent} onClose={() => setPromoEvent(null)} />
+      <UpdatesDialog event={updatesEvent} onClose={() => setUpdatesEvent(null)} />
     </div>
   )
 }
 
-function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr, onPromos }) {
+function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr, onPromos, onUpdates }) {
   const [menu, setMenu] = useState(false)
   const s = eventStats(event)
   const status = STATUS[event.status] || STATUS.hidden
@@ -166,6 +170,7 @@ function EventRow({ event, isAdmin, onStatus, onFeature, onDelete, onQr, onPromo
               <div className="animate-fade-up absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border bg-card p-1 shadow-xl" onClick={() => setMenu(false)}>
                 <MenuItem icon={Pencil} to={`/admin/events/${event.id}/edit`}>Edit</MenuItem>
                 {event.status === 'published' && <MenuItem icon={Eye} href={`/events/${event.id}`}>View public page</MenuItem>}
+                <MenuItem icon={Megaphone} onClick={onUpdates}>Post update</MenuItem>
                 <MenuItem icon={Tag} onClick={onPromos}>Promo codes</MenuItem>
                 <MenuItem icon={QrCode} onClick={onQr}>Poster QR code</MenuItem>
                 <MenuItem icon={CopyPlus} to={`/admin/events/new?from=${event.id}`}>Duplicate</MenuItem>
