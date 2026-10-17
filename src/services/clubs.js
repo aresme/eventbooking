@@ -13,10 +13,15 @@ export function subscribeClubEvents(clubId, onData, onError) {
   )
 }
 
+export class ClubError extends Error {}
+
 export function saveClub(uid, { name, bio, logo, website, instagram }) {
+  for (const [label, v] of [['Logo URL', logo], ['Website', website], ['Instagram', instagram]]) {
+    if (v.trim() && !/^https:\/\/\S+$/i.test(v.trim())) throw new ClubError(`${label} must be a full link starting with https://`)
+  }
   return setDoc(
     doc(db, 'clubs', uid),
-    { name: name.trim(), bio: bio.trim(), logo: logo.trim(), website: website.trim(), instagram: instagram.trim(), updatedAt: serverTimestamp() },
+    { name: name.trim().slice(0, 80), bio: bio.trim().slice(0, 1000), logo: logo.trim(), website: website.trim(), instagram: instagram.trim(), updatedAt: serverTimestamp() },
     { merge: true },
   )
 }

@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LogOut, Menu, Ticket, X } from 'lucide-react'
 import { signOutVisitor, useAuth } from '@/hooks/useAuth'
 import { FacebookIcon, InstagramIcon, XIcon } from './social-icons'
-import { cn } from '@/lib/utils'
+import { cn, safeUrl } from '@/lib/utils'
 import { useSubscription } from '@/hooks/useSubscription'
 import { subscribeSettings, DEFAULT_SETTINGS } from '@/services/settings'
 import { Logo, ThemeToggle } from './brand'
@@ -100,9 +100,9 @@ function AccountMenu({ user }) {
 
 function SiteFooter({ socials }) {
   const links = [
-    { href: socials.facebook, icon: FacebookIcon, label: 'Facebook' },
-    { href: socials.instagram, icon: InstagramIcon, label: 'Instagram' },
-    { href: socials.twitter, icon: XIcon, label: 'X / Twitter' },
+    { href: safeUrl(socials.facebook), icon: FacebookIcon, label: 'Facebook' },
+    { href: safeUrl(socials.instagram), icon: InstagramIcon, label: 'Instagram' },
+    { href: safeUrl(socials.twitter), icon: XIcon, label: 'X / Twitter' },
   ].filter((l) => l.href)
 
   return (

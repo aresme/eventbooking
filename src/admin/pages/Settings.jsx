@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { DEFAULT_SETTINGS, saveSettings, subscribeSettings } from '@/services/settings'
 import { changePassword } from '@/services/users'
-import { saveClub, subscribeClub } from '@/services/clubs'
+import { ClubError, saveClub, subscribeClub } from '@/services/clubs'
 import { emailEnabled, updateEmailsEnabled } from '@/services/email'
 import { Button } from '@/components/ui/button'
 import { Field, Input, Textarea } from '@/components/ui/form'
@@ -50,8 +50,8 @@ function ClubProfile() {
     try {
       await saveClub(user.uid, form)
       toast.success('Club page updated')
-    } catch {
-      toast.error('Could not save your club page')
+    } catch (err) {
+      toast.error(err instanceof ClubError ? err.message : 'Could not save your club page')
     } finally {
       setSaving(false)
     }

@@ -121,7 +121,12 @@ export function eventImage(event, w = 800, h = 500) {
 }
 
 export function downloadCsv(filename, rows) {
-  const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  // Prefix cells that Excel/Sheets would treat as formulas (=, +, -, @) so attendee names can't run code.
+  const escape = (v) => {
+    let s = String(v ?? '')
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+    return `"${s.replace(/"/g, '""')}"`
+  }
   const csv = rows.map((r) => r.map(escape).join(',')).join('\n')
   const a = document.createElement('a')
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
@@ -165,4 +170,11 @@ export function promoLabel(promo) {
 
 export function normalizeCode(raw) {
   return String(raw || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '')
+}
+
+// ---------- security ----------
+/** Only https:// links may be rendered from user-entered data (blocks javascript: and data: URLs). */
+export function safeUrl(url) {
+  const u = String(url || '').trim()
+  return /^https:\/\/[^\s"<>]+$/i.test(u) ? u : ''
 }
