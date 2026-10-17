@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS = {
   socials: { facebook: '', instagram: '', twitter: '', tiktok: '' },
   cloudinary: { cloudName: '', uploadPreset: '' },
   contactEmail: '',
+  contactWhatsapp: '',
 }
 
 export function subscribeSettings(onData, onError) {

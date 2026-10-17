@@ -4,6 +4,9 @@ import { Megaphone, Trash2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSubscription } from '@/hooks/useSubscription'
 import { deleteUpdate, postUpdate, subscribeUpdates } from '@/services/updates'
+import { attendeeEmailCount, sendUpdateToAttendees, updateEmailsEnabled } from '@/services/email'
+import { Switch } from '@/components/ui/form'
+import { useDashboard } from './DashboardLayout'
 import { timeAgo } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/form'
@@ -24,6 +27,10 @@ function Updates({ event }) {
   const { data: updates = [] } = useSubscription((ok, err) => subscribeUpdates(event.id, ok, err), [event.id], { initial: [] })
   const [message, setMessage] = useState('')
   const [posting, setPosting] = useState(false)
+  const [emailToo, setEmailToo] = useState(false)
+  const { bookings } = useDashboard()
+  const eventBookings = bookings.filter((b) => b.eventId === event.id)
+  const emailCount = attendeeEmailCount(eventBookings)
 
   async function post(e) {
     e.preventDefault()
@@ -31,8 +38,15 @@ function Updates({ event }) {
     setPosting(true)
     try {
       await postUpdate(event, message, user)
+      if (emailToo && emailCount > 0) {
+        toast.info(`Emailing ${emailCount} attendee${emailCount > 1 ? 's' : ''}…`)
+        const { sent, total } = await sendUpdateToAttendees({ event, message: message.trim(), bookings: eventBookings })
+        toast[sent === total ? 'success' : 'warning'](`Update posted and emailed to ${sent} of ${total}`)
+      } else {
+        toast.success('Update posted')
+      }
       setMessage('')
-      toast.success('Update posted')
+      setEmailToo(false)
     } catch {
       toast.error('Could not post the update')
     } finally {
@@ -51,6 +65,15 @@ function Updates({ event }) {
             </button>
           ))}
         </div>
+        {updateEmailsEnabled && (
+          <Switch
+            checked={emailToo}
+            onChange={setEmailToo}
+            label={`Also email attendees (${emailCount})`}
+            description={emailCount ? 'Uses one email per attendee from your EmailJS allowance (200/month on the free plan).' : 'No attendees gave an email address.'}
+            className="rounded-lg border p-3"
+          />
+        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">{message.length}/500</span>
           <Button type="submit" loading={posting} disabled={!message.trim()}>

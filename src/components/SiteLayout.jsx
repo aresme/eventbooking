@@ -34,6 +34,9 @@ export function SiteLayout() {
             <a href="/#how-it-works" className={navLink({ isActive: false })}>
               How it works
             </a>
+            <NavLink to="/help" className={navLink}>
+              Help
+            </NavLink>
           </nav>
           <div className="flex items-center gap-1">
             <ThemeToggle />
@@ -51,6 +54,8 @@ export function SiteLayout() {
             <Link to="/" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">Browse events</Link>
             <Link to="/my-tickets" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">My tickets</Link>
             <a href="/#how-it-works" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">How it works</a>
+            <Link to="/help" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">Help</Link>
+            <Link to="/contact" className="rounded-lg px-3 py-2.5 font-semibold hover:bg-muted">Contact us</Link>
             {googleUser && (
               <button onClick={signOutVisitor} className="rounded-lg px-3 py-2.5 text-left font-semibold text-muted-foreground hover:bg-muted">
                 Sign out ({googleUser.email})
@@ -126,6 +131,8 @@ function SiteFooter({ socials }) {
         <div>
           <h3 className="mb-3 text-sm font-bold">UniVibe</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
+            <li><Link to="/help" className="hover:text-foreground">Help center</Link></li>
+            <li><Link to="/contact" className="hover:text-foreground">Contact us</Link></li>
             <li><a href="/admin" className="hover:text-foreground">Organizer login</a></li>
             <li><Link to="/terms" className="hover:text-foreground">Terms</Link></li>
             <li><Link to="/privacy" className="hover:text-foreground">Privacy</Link></li>

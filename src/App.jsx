@@ -9,6 +9,8 @@ import MyTickets from '@/pages/public/MyTickets'
 import { NotFound, Privacy, Terms } from '@/pages/public/Legal'
 import AdminRedirect from '@/pages/public/AdminRedirect'
 import Club from '@/pages/public/Club'
+import Help from '@/pages/public/Help'
+import Contact from '@/pages/public/Contact'
 
 // Public site only. The admin area is a separate page: admin.html → src/admin/main.jsx
 const router = createBrowserRouter([
@@ -28,6 +30,8 @@ const router = createBrowserRouter([
           { path: '/tickets/:bookingId', element: <Ticket /> },
           { path: '/my-tickets', element: <MyTickets /> },
           { path: '/clubs/:clubId', element: <Club /> },
+          { path: '/help', element: <Help /> },
+          { path: '/contact', element: <Contact /> },
           { path: '/terms', element: <Terms /> },
           { path: '/privacy', element: <Privacy /> },
           { path: '/admin/*', element: <AdminRedirect /> },

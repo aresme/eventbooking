@@ -52,3 +52,29 @@ export function sendWaitlistPromotion({ bookingId, entry, event }) {
     ticket_url: `${window.location.origin}/tickets/${bookingId}`,
   })
 }
+
+export const updateEmailsEnabled = emailEnabled && Boolean(env.VITE_EMAILJS_TEMPLATE_UPDATE)
+
+/**
+ * Email an organizer update to every confirmed attendee who gave an email (one email per address).
+ * EmailJS free plan allows 200 emails/month, so the caller shows the count first.
+ */
+export async function sendUpdateToAttendees({ event, message, bookings }) {
+  const recipients = [...new Map(bookings.filter((b) => b.status === 'confirmed' && b.email).map((b) => [b.email, b])).values()]
+  let sent = 0
+  for (const b of recipients) {
+    const ok = await send(env.VITE_EMAILJS_TEMPLATE_UPDATE, {
+      to_email: b.email,
+      to_name: b.fullName,
+      ...eventParams(event),
+      message,
+      ticket_url: `${window.location.origin}/tickets/${b.id}`,
+    })
+    if (ok) sent++
+  }
+  return { sent, total: recipients.length }
+}
+
+export function attendeeEmailCount(bookings) {
+  return new Set(bookings.filter((b) => b.status === 'confirmed' && b.email).map((b) => b.email)).size
+}
